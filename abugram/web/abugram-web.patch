@@ -1409,10 +1409,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..1731fd1 100644
+index 6e592cb..13f422a 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,241 @@
+@@ -1549,3 +1549,236 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1522,10 +1522,8 @@ index 6e592cb..1731fd1 100644
 +  margin: .5rem .75rem;
 +  padding: .75rem 2.5rem .75rem .75rem;
 +  border-radius: 16px;
-+  background: color-mix(in srgb, var(--surface-color) 92%, transparent);
-+  -webkit-backdrop-filter: blur(20px) saturate(170%);
-+  backdrop-filter: blur(20px) saturate(170%);
-+  box-shadow: 0 1px 0 color-mix(in srgb, var(--primary-text-color) 8%, transparent), 0 4px 16px rgba(0, 0, 0, .12);
++  background: color-mix(in srgb, var(--primary-color) 9%, var(--surface-color));
++  box-shadow: 0 1px 0 color-mix(in srgb, var(--primary-text-color) 6%, transparent);
 +  color: var(--primary-text-color);
 +  cursor: pointer;
 +  -webkit-tap-highlight-color: transparent;
@@ -1550,12 +1548,9 @@ index 6e592cb..1731fd1 100644
 +}
 +
 +.abugram-ad-label {
-+  display: inline-block;
++  display: block;
 +  margin-bottom: 2px;
-+  padding: 1px 6px;
-+  border-radius: 6px;
-+  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
-+  font-size: .6875rem;
++  font-size: .8125rem;
 +  font-weight: 600;
 +  color: var(--primary-color);
 +}
