@@ -23,17 +23,118 @@ b{color:var(--text)}
 <li>Worker manzili <b>abugram.….workers.dev</b> ko'rinishida bo'ladi. Shu manzilni nusxalab yuboring.</li>
 </ol>
 <button id="copy">📋 Kodni nusxalash</button>
-<pre id="code">// Abugram relay: lets Abugram Web reach Telegram where *.web.telegram.org is blocked.
-// It only forwards to Telegram&#x27;s own web endpoints:
+<pre id="code">// Abugram relay: lets Abugram reach Telegram where *.web.telegram.org is blocked, and serves Abugram&#x27;s own ads.
+//
+// Telegram (only Telegram&#x27;s own web endpoints are forwarded):
 //   https://&lt;relay&gt;/&lt;host&gt;/apiw1 -&gt; https://&lt;host&gt;.web.telegram.org/apiw1 (plain HTTPS requests)
 //   wss://&lt;relay&gt;/&lt;host&gt;/apiws   -&gt; wss://&lt;host&gt;.web.telegram.org/apiws  (WebSocket)
-// The MTProto traffic inside stays encrypted end to end between the app and Telegram; the relay cannot
-// read it. Anything else gets a plain page.
+// The MTProto traffic inside stays encrypted end to end between the app and Telegram; the relay cannot read it.
+//
+// Ads (need a D1 database bound as DB; without it there are simply no ads):
+//   GET  /ads              the active ads, for the apps
+//   POST /ads/seen         body {&quot;ids&quot;:[1,2]}: counts a view of each
+//   GET  /go/&lt;id&gt;          counts a click and redirects to the ad&#x27;s link
+//   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
+//                          only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare)
 const HTTP_ROUTE = /^\/((?:pluto|venus|aurora|vesta|flora)(?:-[a-z0-9]+)*)\/(apiw(?:_test)?1)$/i;
 const WS_ROUTE = /^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i;
+const CORS = {
+  &#x27;access-control-allow-origin&#x27;: &#x27;*&#x27;,
+  &#x27;access-control-allow-methods&#x27;: &#x27;GET, POST, DELETE, OPTIONS&#x27;,
+  &#x27;access-control-allow-headers&#x27;: &#x27;authorization, content-type&#x27;
+};
+
+function json(data, status = 200, extra = {}) {
+  return new Response(JSON.stringify(data), {status, headers: {&#x27;content-type&#x27;: &#x27;application/json; charset=utf-8&#x27;, ...CORS, ...extra}});
+}
+
+let schemaReady = false;
+async function db(env) {
+  if(!env.DB) return null;
+  if(!schemaReady) {
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      text TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      image TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      url TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      active INTEGER NOT NULL DEFAULT 1,
+      created INTEGER NOT NULL DEFAULT 0,
+      views INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    schemaReady = true;
+  }
+  return env.DB;
+}
+
+function isAdmin(request, env) {
+  const auth = request.headers.get(&#x27;authorization&#x27;) || &#x27;&#x27;;
+  return !!env.ADMIN_PASSWORD &amp;&amp; auth === &#x27;Bearer &#x27; + env.ADMIN_PASSWORD;
+}
+
+function clean(value, max) {
+  return String(value ?? &#x27;&#x27;).slice(0, max);
+}
+
+async function handleAds(request, env, url) {
+  const path = url.pathname;
+  if(request.method === &#x27;OPTIONS&#x27;) return new Response(null, {status: 204, headers: CORS});
+
+  if(path === &#x27;/ads&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const d = await db(env);
+    if(!d) return json({ads: []});
+    const {results} = await d.prepare(&#x27;SELECT id, title, text, image, url FROM ads WHERE active = 1 ORDER BY id DESC LIMIT 5&#x27;).all();
+    return json({ads: results}, 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
+  }
+
+  if(path === &#x27;/ads/seen&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const d = await db(env);
+    if(!d) return json({ok: true});
+    let ids = [];
+    try { ids = ((await request.json()).ids || []).map(Number).filter((n) =&gt; Number.isInteger(n) &amp;&amp; n &gt; 0).slice(0, 5); } catch(e) {}
+    if(ids.length) await d.batch(ids.map((id) =&gt; d.prepare(&#x27;UPDATE ads SET views = views + 1 WHERE id = ?&#x27;).bind(id)));
+    return json({ok: true});
+  }
+
+  const go = path.match(/^\/go\/(\d+)$/);
+  if(go) {
+    const d = await db(env);
+    const row = d &amp;&amp; await d.prepare(&#x27;SELECT url FROM ads WHERE id = ?&#x27;).bind(Number(go[1])).first();
+    if(!row || !/^https?:\/\//i.test(row.url)) return new Response(&#x27;Not found&#x27;, {status: 404, headers: CORS});
+    await d.prepare(&#x27;UPDATE ads SET clicks = clicks + 1 WHERE id = ?&#x27;).bind(Number(go[1])).run();
+    return Response.redirect(row.url, 302);
+  }
+
+  if(path === &#x27;/admin/ads&#x27;) {
+    if(!isAdmin(request, env)) return json({error: &#x27;unauthorized&#x27;}, 401);
+    const d = await db(env);
+    if(!d) return json({error: &#x27;no database bound as DB&#x27;}, 500);
+    if(request.method === &#x27;GET&#x27;) {
+      const {results} = await d.prepare(&#x27;SELECT * FROM ads ORDER BY id DESC&#x27;).all();
+      return json({ads: results});
+    }
+    if(request.method === &#x27;POST&#x27;) {
+      const b = await request.json();
+      const fields = [clean(b.title, 120), clean(b.text, 600), clean(b.image, 500), clean(b.url, 500), b.active ? 1 : 0];
+      if(fields[3] &amp;&amp; !/^https?:\/\//i.test(fields[3])) return json({error: &#x27;url must start with https://&#x27;}, 400);
+      if(b.id) {
+        await d.prepare(&#x27;UPDATE ads SET title = ?, text = ?, image = ?, url = ?, active = ? WHERE id = ?&#x27;).bind(...fields, Number(b.id)).run();
+        return json({ok: true, id: Number(b.id)});
+      }
+      const r = await d.prepare(&#x27;INSERT INTO ads (title, text, image, url, active, created) VALUES (?, ?, ?, ?, ?, ?)&#x27;).bind(...fields, Date.now()).run();
+      return json({ok: true, id: r.meta.last_row_id});
+    }
+    if(request.method === &#x27;DELETE&#x27;) {
+      await d.prepare(&#x27;DELETE FROM ads WHERE id = ?&#x27;).bind(Number(url.searchParams.get(&#x27;id&#x27;))).run();
+      return json({ok: true});
+    }
+  }
+  return null;
+}
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     const http = url.pathname.match(HTTP_ROUTE);
     if(http) {
@@ -51,7 +152,15 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    return new Response(&#x27;Abugram relay is running (v2).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;)) {
+      try {
+        const response = await handleAds(request, env, url);
+        if(response) return response;
+      } catch(e) {
+        return json({error: String(e &amp;&amp; e.message || e)}, 500);
+      }
+    }
+    return new Response(&#x27;Abugram relay is running (v3).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>

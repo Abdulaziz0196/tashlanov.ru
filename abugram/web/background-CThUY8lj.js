@@ -1,0 +1,2 @@
+//# allFunctionsCalledOnLoad
+export{vn as AppBackgroundTab,bn as WALLPAPER_FILE_TYPES,xn as buildFromWallPapers,Sn as createWallPaperGrid,yn as default,Cn as getWallPaperKey}from"./appDialogsManager-DTlqHrnR.js";

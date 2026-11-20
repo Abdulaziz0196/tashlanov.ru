@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Abugram Admin</title>
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--line:#2c2c3c;--text:#f2f2f7;--muted:#a3a3b5;--accent:#6A5CFF;--accent2:#00D5FF;--ok:#34c759;--bad:#ff453a}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--line:#e3e3ea;--text:#14141c;--muted:#5d5d6e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:24px 0 10px}
+p.sub{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.danger{background:var(--bad)}
+.ad-title{font-weight:700}.ad-text{color:var(--muted);font-size:14px;white-space:pre-wrap}
+.stats{display:flex;gap:14px;font-size:14px;margin-top:8px;color:var(--muted)}.stats b{color:var(--text)}
+.pill{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}.on{color:var(--ok);border-color:var(--ok)}.off{color:var(--muted)}
+.msg{margin-top:10px;font-size:14px}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
+img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;display:block}
+.check{display:flex;align-items:center;gap:8px;margin-top:12px}.check input{width:auto}
+</style></head><body><main>
+<h1>Abugram Admin</h1>
+<p class="sub">Reklamalar: qo'shish, o'zgartirish, statistika. Chatlar ro'yxati tepasida "Reklama" belgisi bilan chiqadi.</p>
+
+<div class="card" id="login">
+  <label for="pw">Admin parol</label>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="Cloudflare'dagi ADMIN_PASSWORD">
+  <div class="row" style="margin-top:12px"><button id="enter">Kirish</button></div>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<div id="panel" hidden>
+  <h2 id="formTitle">Yangi reklama</h2>
+  <div class="card">
+    <input type="hidden" id="id">
+    <label for="title">Sarlavha</label><input id="title" maxlength="120" placeholder="Masalan: Arzon aviabiletlar">
+    <label for="text">Matn</label><textarea id="text" maxlength="600" placeholder="Qisqa tavsif"></textarea>
+    <label for="url">Havola (bosilganda ochiladi)</label><input id="url" maxlength="500" placeholder="https://t.me/kanal yoki https://sayt.uz">
+    <label for="image">Rasm havolasi (ixtiyoriy)</label><input id="image" maxlength="500" placeholder="https://.../rasm.jpg">
+    <img class="prev" id="prev" alt="" hidden>
+    <label class="check"><input type="checkbox" id="active" checked> Faol (ilovada ko'rinadi)</label>
+    <div class="row" style="margin-top:14px"><button id="save">Saqlash</button><button class="ghost" id="reset">Tozalash</button></div>
+    <div class="msg" id="formMsg"></div>
+  </div>
+  <h2>Reklamalar</h2>
+  <div id="list"></div>
+  <div class="row" style="margin-top:16px"><button class="ghost" id="logout">Chiqish</button></div>
+</div>
+</main>
+<script>
+var RELAY='https://winter-cake-2d11.tashlanow.workers.dev';
+var $=function(id){return document.getElementById(id);};
+var pw='';try{pw=localStorage.getItem('abugram-admin')||'';}catch(e){}
+function api(method,path,body){
+  return fetch(RELAY+path,{method:method,headers:Object.assign({'authorization':'Bearer '+pw},body?{'content-type':'application/json'}:{}),body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
+}
+function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load(); }
+function load(){
+  api('GET','/admin/ads').then(function(j){
+    var list=$('list');list.innerHTML='';
+    if(!j.ads.length){list.innerHTML='<div class="card ad-text">Hali reklama yo\'q.</div>';return;}
+    j.ads.forEach(function(ad){
+      var c=document.createElement('div');c.className='card';
+      var ctr=ad.views?((ad.clicks/ad.views)*100).toFixed(1)+'%':'—';
+      c.innerHTML='<div class="row" style="justify-content:space-between"><div class="ad-title"></div><span class="pill '+(ad.active?'on">Faol':'off">O\'chiq')+'</span></div><div class="ad-text"></div><div class="stats"><span>Ko\'rildi: <b>'+ad.views+'</b></span><span>Bosildi: <b>'+ad.clicks+'</b></span><span>CTR: <b>'+ctr+'</b></span></div><div class="row" style="margin-top:10px"><button class="ghost" data-a="edit">Tahrirlash</button><button class="ghost" data-a="toggle">'+(ad.active?'O\'chirish':'Yoqish')+'</button><button class="danger" data-a="del">O\'chirib tashlash</button></div>';
+      c.querySelector('.ad-title').textContent=ad.title||'(sarlavhasiz)';
+      c.querySelector('.ad-text').textContent=(ad.text||'')+(ad.url?'\n'+ad.url:'');
+      c.querySelector('[data-a=edit]').onclick=function(){fill(ad);window.scrollTo({top:0,behavior:'smooth'});};
+      c.querySelector('[data-a=toggle]').onclick=function(){api('POST','/admin/ads',Object.assign({},ad,{active:ad.active?0:1})).then(load);};
+      c.querySelector('[data-a=del]').onclick=function(){if(confirm('Reklama o\'chirib tashlansinmi?'))api('DELETE','/admin/ads?id='+ad.id).then(load);};
+      list.appendChild(c);
+    });
+  }).catch(function(e){msg($('formMsg'),e.message);});
+}
+function fill(ad){
+  $('id').value=ad?ad.id:'';$('title').value=ad?ad.title:'';$('text').value=ad?ad.text:'';$('url').value=ad?ad.url:'';$('image').value=ad?ad.image:'';$('active').checked=ad?!!ad.active:true;
+  $('formTitle').textContent=ad?'Reklamani tahrirlash #'+ad.id:'Yangi reklama';preview();
+}
+function preview(){var u=$('image').value.trim();$('prev').hidden=!/^https:\/\//.test(u);if(!$('prev').hidden)$('prev').src=u;}
+$('image').oninput=preview;
+$('enter').onclick=function(){pw=$('pw').value.trim();api('GET','/admin/ads').then(function(){try{localStorage.setItem('abugram-admin',pw);}catch(e){}showPanel();}).catch(function(e){msg($('loginMsg'),e.message);});};
+$('save').onclick=function(){
+  var body={id:$('id').value?Number($('id').value):undefined,title:$('title').value.trim(),text:$('text').value.trim(),url:$('url').value.trim(),image:$('image').value.trim(),active:$('active').checked?1:0};
+  if(!body.title&&!body.text){msg($('formMsg'),'Sarlavha yoki matn yozing');return;}
+  if(body.url&&!/^https?:\/\//.test(body.url)){msg($('formMsg'),'Havola https:// bilan boshlansin');return;}
+  api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
+};
+$('reset').onclick=function(){fill(null);};
+$('logout').onclick=function(){try{localStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
+if(pw){api('GET','/admin/ads').then(showPanel).catch(function(){});}
+</script></body></html>
