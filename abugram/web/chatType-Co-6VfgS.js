@@ -1,3 +1,0 @@
-//# allFunctionsCalledOnLoad
-import{Kt as e,qt as t}from"./getChatMigratedTo-Cq54OV9n.js";var n=function(e){return e.Chat=`chat`,e.Pinned=`pinned`,e.Discussion=`discussion`,e.Scheduled=`scheduled`,e.Stories=`stories`,e.Saved=`saved`,e.Search=`search`,e.Static=`static`,e.Logs=`logs`,e.Welcome=`welcome`,e}({});function r(e,t){return!i(e,t)}function i(n,r){if(n===`scheduled`||r.pFlags.is_scheduled)return`scheduled`;if(n===`logs`||n===`static`||n===`welcome`)return n;if(t(r)||e(r))return`ephemeral`}export{i as n,r,n as t};
-//# sourceMappingURL=chatType-Co-6VfgS.js.map
