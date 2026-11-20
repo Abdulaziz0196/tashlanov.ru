@@ -1,9 +1,9 @@
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..6780c35
+index 0000000..57d5fb0
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,100 @@
+@@ -0,0 +1,124 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
@@ -13,13 +13,28 @@ index 0000000..6780c35
 +import {useSuperTab} from '@components/solidJsTabs/superTabProvider';
 +import {toastNew} from '@components/toast';
 +import I18n from '@lib/langPack';
-+import {createSignal} from 'solid-js';
++import {createSignal, For, onCleanup, onMount, Show} from 'solid-js';
++import {abugramWatchSockets, AbugramSocketRecord} from '@lib/abugram/netStats';
 +
 +/** Settings → Abugram: the same switches as in Abugram for Android. */
 +const AbugramTab = () => {
 +  const [tab] = useSuperTab();
 +  const [appSettings, setAppSettings] = useAppSettings();
 +  const [creating, setCreating] = createSignal(false);
++  const [sockets, setSockets] = createSignal<AbugramSocketRecord[]>([]);
++  const [now, setNow] = createSignal(Date.now());
++  onMount(() => {
++    const stop = abugramWatchSockets((records) => {
++      setSockets(records.slice().reverse().slice(0, 12));
++      setNow(Date.now());
++    });
++    onCleanup(stop);
++  });
++  const kb = (bytes: number) => (bytes / 1024).toFixed(1) + ' KB';
++  const describe = (r: AbugramSocketRecord) => {
++    const lived = (((r.closedAt ?? now()) - r.openedAt) / 1000).toFixed(1) + 's';
++    return `#${r.id} DC${r.dcId} · ${lived} · ⬇${kb(r.bytesIn)} ⬆${kb(r.bytesOut)} · ${r.closedAt ? r.reason : 'ochiq'}`;
++  };
 +
 +  const createTabs = async() => {
 +    if(creating()) return;
@@ -95,6 +110,15 @@ index 0000000..6780c35
 +          <Row.Title>{i18n('Abugram.ShowIds')}</Row.Title>
 +          <Row.Subtitle>{i18n('Abugram.ShowIds.Sub')}</Row.Subtitle>
 +        </Row>
++      </Section>
++      <Section name="Abugram.Diag" caption="Abugram.Diag.Info">
++        <Show when={sockets().length} fallback={<Row><Row.Title>{i18n('Abugram.Diag.Empty')}</Row.Title></Row>}>
++          <For each={sockets()}>{(r) => (
++            <Row>
++              <Row.Title><span style="font-size: 0.85em; font-variant-numeric: tabular-nums">{describe(r)}</span></Row.Title>
++            </Row>
++          )}</For>
++        </Show>
 +      </Section>
 +      <Section name="Abugram.Calls">
 +        <Toggle key="confirmCalls" title="Abugram.ConfirmCalls" subtitle="Abugram.ConfirmCalls.Sub" />
@@ -212,10 +236,10 @@ index 8fe1cdb..3972893 100644
      'message-background-color': '#ffffff',
      'surface-color': '#ffffff',
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..47d0a5b 100644
+index 9601966..552bb53 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
-@@ -1,4 +1,46 @@
+@@ -1,4 +1,49 @@
  const lang = {
 +  'Abugram.Title': 'Abugram',
 +  'Abugram.Settings.Row': 'Abugram',
@@ -238,6 +262,9 @@ index 9601966..47d0a5b 100644
 +  'Abugram.Look': 'Ko\'rinish · Внешний вид',
 +  'Abugram.HideStories': 'Story panelini yashirish',
 +  'Abugram.HideStories.Sub': 'Скрыть панель историй',
++  'Abugram.Diag': 'Diagnostika · Диагностика',
++  'Abugram.Diag.Info': 'Telegram\'ga ulanishlar: qancha yashadi, qancha yukladi (⬇) va yubordi (⬆), nega yopildi. Ulanish muammosi bo\'lsa, shu ro\'yxatning skrinshotini yuboring.',
++  'Abugram.Diag.Empty': 'Hali ulanish yo\'q',
 +  'Abugram.ShowSeconds': 'Vaqtni soniyagacha ko\'rsatish',
 +  'Abugram.ShowSeconds.Sub': 'Время с секундами (12:44:07). Новые сообщения сразу, остальные после перезапуска',
 +  'Abugram.ShowIds': 'ID ko\'rsatish',
@@ -262,6 +289,80 @@ index 9601966..47d0a5b 100644
    'Animations': 'Animations',
    'AttachAlbum': 'Album',
    'Appearance.Color.Hex': 'HEX',
+diff --git a/src/lib/abugram/netStats.ts b/src/lib/abugram/netStats.ts
+new file mode 100644
+index 0000000..2c5a6fc
+--- /dev/null
++++ b/src/lib/abugram/netStats.ts
+@@ -0,0 +1,68 @@
++/**
++ * Abugram: what each relayed connection did (how long it lived, what it carried, why it ended), kept where the
++ * connections live (the MTProto worker) and read by Settings → Abugram over a BroadcastChannel, so a network that
++ * freezes or cuts connections can be told from the screen.
++ */
++export type AbugramSocketRecord = {
++  id: number,
++  dcId: number,
++  openedAt: number,
++  closedAt?: number,
++  bytesIn: number,
++  bytesOut: number,
++  reason?: string
++};
++
++const CHANNEL = 'abugram-net';
++const KEEP = 30;
++const records: AbugramSocketRecord[] = [];
++let nextId = 1;
++let channel: BroadcastChannel;
++
++function getChannel() {
++  if(channel === undefined) {
++    try {
++      channel = new BroadcastChannel(CHANNEL);
++      channel.onmessage = (event) => {
++        if(event.data?.type === 'get') channel.postMessage({type: 'all', records});
++      };
++    } catch(err) {
++      channel = null;
++    }
++  }
++  return channel;
++}
++
++export function abugramSocketOpened(dcId: number): AbugramSocketRecord {
++  const record: AbugramSocketRecord = {id: nextId++, dcId, openedAt: Date.now(), bytesIn: 0, bytesOut: 0};
++  records.push(record);
++  if(records.length > KEEP) records.shift();
++  getChannel()?.postMessage({type: 'all', records});
++  return record;
++}
++
++export function abugramSocketClosed(record: AbugramSocketRecord, reason: string) {
++  if(!record || record.closedAt) return;
++  record.closedAt = Date.now();
++  record.reason = reason;
++  getChannel()?.postMessage({type: 'all', records});
++}
++
++/** For the settings screen: calls `onRecords` with every report, returns the unsubscribe. */
++export function abugramWatchSockets(onRecords: (records: AbugramSocketRecord[]) => void) {
++  let c: BroadcastChannel;
++  try {
++    c = new BroadcastChannel(CHANNEL);
++  } catch(err) {
++    return () => {};
++  }
++  c.onmessage = (event) => {
++    if(event.data?.type === 'all') onRecords(event.data.records);
++  };
++  c.postMessage({type: 'get'});
++  const interval = setInterval(() => c.postMessage({type: 'get'}), 2000);
++  return () => {
++    clearInterval(interval);
++    c.close();
++  };
++}
 diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
 new file mode 100644
 index 0000000..9256b53
@@ -493,8 +594,102 @@ index 7e8a6db..d6e76c7 100644
    const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
  
    return chosenServer;
+diff --git a/src/lib/mtproto/transports/websocket.ts b/src/lib/mtproto/transports/websocket.ts
+index fa10ae2..24265b1 100644
+--- a/src/lib/mtproto/transports/websocket.ts
++++ b/src/lib/mtproto/transports/websocket.ts
+@@ -3,6 +3,12 @@ import Modes from '@config/modes';
+ import EventListenerBase from '@helpers/eventListenerBase';
+ import {MTConnection} from '@lib/mtproto/transports/transport';
+ import ctx from '@environment/ctx';
++import {abugramSocketClosed, abugramSocketOpened, AbugramSocketRecord} from '@lib/abugram/netStats';
++
++// * Abugram: a relayed connection that has been sent something and has answered nothing for this long is taken as
++// * frozen by the network, and is closed so that a new one is made at once (a request waiting on it is sent again)
++const ABUGRAM_STALL_MS = 10e3;
++const IS_RELAYED = !!import.meta.env.VITE_ABUGRAM_RELAY;
+ 
+ const TEST_NO_WEBSOCKET = false;
+ 
+@@ -18,6 +24,10 @@ export default class Socket extends EventListenerBase<{
+   private log: ReturnType<typeof logger>;
+   private debug = Modes.debug && false;
+   private connectionTimeout: number;
++  private abugramRecord: AbugramSocketRecord;
++  private abugramWaitingSince = 0;
++  private abugramStallInterval: number;
++  private abugramReason: string;
+ 
+   constructor(protected dcId: number, protected url: string, logSuffix: string) {
+     super();
+@@ -45,8 +55,20 @@ export default class Socket extends EventListenerBase<{
+     this.ws = undefined;
+ 
+     this.clearConnectionTimeout();
++    if(this.abugramStallInterval) {
++      clearInterval(this.abugramStallInterval);
++      this.abugramStallInterval = undefined;
++    }
+   }
+ 
++  private abugramCheckStall = () => {
++    if(this.abugramWaitingSince && Date.now() - this.abugramWaitingSince > ABUGRAM_STALL_MS) {
++      this.abugramReason = 'muzladi';
++      this.log.error('relayed connection froze, reconnecting');
++      this.close();
++    }
++  };
++
+   private connect() {
+     this.ws = new WebSocket(this.url, 'binary');
+     this.ws.binaryType = 'arraybuffer';
+@@ -55,6 +77,13 @@ export default class Socket extends EventListenerBase<{
+     this.ws.addEventListener('error', this.handleError);
+     this.ws.addEventListener('message', this.handleMessage);
+ 
++    this.abugramRecord = abugramSocketOpened(this.dcId);
++    this.abugramWaitingSince = 0;
++    this.abugramReason = undefined;
++    if(IS_RELAYED) {
++      this.abugramStallInterval = ctx.setInterval(this.abugramCheckStall, 2000) as any;
++    }
++
+     this.connectionTimeout = ctx.setTimeout(() => {
+       this.handleError(new Error('CONNECTION_TIMEOUT'));
+     }, 7500);
+@@ -95,11 +124,13 @@ export default class Socket extends EventListenerBase<{
+ 
+   private handleError = (e: any) => {
+     this.log.error('handleError', e);
++    this.abugramReason ??= (e?.message === 'CONNECTION_TIMEOUT' ? 'ochilmadi' : 'xato');
+     this.close();
+   };
+ 
+   private handleClose = (e?: CloseEvent) => {
+     this.log('closed', e/* , this.pending, this.ws.bufferedAmount */);
++    abugramSocketClosed(this.abugramRecord, this.abugramReason ?? (e ? 'uzildi' + (e.code ? ' ' + e.code : '') : 'yopildi'));
+ 
+     this.removeListeners();
+     this.dispatchEvent('close');
+@@ -108,12 +139,16 @@ export default class Socket extends EventListenerBase<{
+   private handleMessage = (event: MessageEvent) => {
+     this.debug && this.log.debug('<-', 'handleMessage', /* event,  */event.data.byteLength);
+ 
++    if(this.abugramRecord) this.abugramRecord.bytesIn += (event.data as ArrayBuffer).byteLength;
++    this.abugramWaitingSince = 0;
+     this.dispatchEvent('message', event.data as ArrayBuffer);
+   };
+ 
+   public send = (body: Uint8Array) => {
+     this.debug && this.log.debug('-> body length to send:', body.length);
+ 
++    if(this.abugramRecord) this.abugramRecord.bytesOut += body.length;
++    this.abugramWaitingSince ||= Date.now();
+     this.ws.send(body as Uint8Array<ArrayBuffer>);
+   };
+ }
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..db7a489 100644
+index 02c16ac..62770c8 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -505,11 +700,13 @@ index 02c16ac..db7a489 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,23 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,25 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
 +    {id: 'AppAbugramTab:Abugram.Calls', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Calls'},
++    {id: 'AppAbugramTab:Abugram.Diag', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Diag'},
++    {id: 'AppAbugramTab:Abugram.Diag.Empty', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Diag.Empty'},
 +    {id: 'AppAbugramTab:Abugram.Ghost', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Ghost'},
 +    {id: 'AppAbugramTab:Abugram.GhostOnline', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostOnline'},
 +    {id: 'AppAbugramTab:Abugram.GhostRead', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostRead'},
