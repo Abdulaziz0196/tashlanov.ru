@@ -1,3 +1,0 @@
-//# allFunctionsCalledOnLoad
-import{r as e}from"./apiManagerProxy-DWgfYlZl.js";import{p as t}from"./solid-B0Du5GQu.js";import{d as n}from"./web-FH1QzTRi.js";import{t as r}from"./communityAvatar-COAaNWx2.js";function i(i,a){let o=document.createElement(`div`);return{dispose:n(()=>{let n=e(()=>i);return t(r,{get community(){return n()},get title(){return n()?.title},size:a})},o),element:o.firstElementChild}}export{i as t};
-//# sourceMappingURL=communityAvatarElement-Da1i2Z8S.js.map

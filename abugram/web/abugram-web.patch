@@ -253,6 +253,96 @@ index 8fe1cdb..3972893 100644
      'message-out-primary-color': '#5CA853',
      'message-background-color': '#ffffff',
      'surface-color': '#ffffff',
+diff --git a/src/helpers/videoRecorder/nativeVideoRecorder.ts b/src/helpers/videoRecorder/nativeVideoRecorder.ts
+index 8b2be75..acc97e7 100644
+--- a/src/helpers/videoRecorder/nativeVideoRecorder.ts
++++ b/src/helpers/videoRecorder/nativeVideoRecorder.ts
+@@ -28,6 +28,13 @@
+ import {IS_APPLE_MOBILE, IS_SAFARI} from '@environment/userAgent';
+ import acquireStream, {StreamAcquisition} from '@lib/calls/helpers/acquireStream';
+ 
++/**
++ * Abugram: WebKit's canvas.captureStream is broken (bug #181663), so round video notes were off on Safari and
++ * iOS. There the camera stream itself is recorded, asked for square (`aspectRatio` 1) - recipients show a video
++ * note as a circle cut from its centre either way.
++ */
++const RECORD_CAMERA_DIRECTLY = IS_SAFARI || IS_APPLE_MOBILE;
++
+ export interface NativeVideoRecorderConfig {
+   // Square output dimensions written to the encoded file. 400 = the larger of
+   // iOS (400) and Android (384), matching what other clients send.
+@@ -90,12 +97,13 @@ function pickPreviewMimeType(): string | undefined {
+ export function isNativeVideoRecorderSupported(): boolean {
+   if(typeof MediaRecorder === 'undefined') return false;
+   if(!navigator?.mediaDevices?.getUserMedia) return false;
++  if(RECORD_CAMERA_DIRECTLY) return pickMimeType() !== undefined;
+   if(typeof HTMLCanvasElement === 'undefined' || !HTMLCanvasElement.prototype.captureStream) return false;
+   // WebKit (Safari + all iOS browsers) exposes canvas.captureStream and an mp4
+   // MediaRecorder, but the canvas-captured video track is broken — invalid
+   // frames and a possible hang on stop() (WebKit bug #181663). Disable video
+   // notes there; getActiveRecordingMediaType() falls back to voice.
+-  if(IS_SAFARI || IS_APPLE_MOBILE) return false;
++  // * Abugram: there the camera stream is recorded directly instead (RECORD_CAMERA_DIRECTLY, above)
+   return pickMimeType() !== undefined;
+ }
+ 
+@@ -184,7 +192,12 @@ export default class NativeVideoRecorder {
+     // (`ideal`, never `min` — a hard min paired with `deviceId:{exact}` becomes
+     // OverconstrainedError). Honour the camera/mic the caller selected (Settings
+     // → Speakers and Camera) via videoDeviceId/audioDeviceId.
+-    const video: MediaTrackConstraints = {
++    const video: MediaTrackConstraints = RECORD_CAMERA_DIRECTLY ? {
++      width: {ideal: this.config.width},
++      height: {ideal: this.config.height},
++      aspectRatio: {ideal: 1},
++      frameRate: {ideal: this.config.frameRate}
++    } : {
+       width: {ideal: 720},
+       height: {ideal: 720},
+       frameRate: {ideal: this.config.frameRate}
+@@ -212,6 +225,10 @@ export default class NativeVideoRecorder {
+     if(!stream) return;
+     this.stream = stream;
+ 
++    if(RECORD_CAMERA_DIRECTLY) {
++      return this.startRecordingCameraDirectly();
++    }
++
+     // Off-DOM <video> that decodes the raw camera feed for the canvas.
+     this.drawVideo = document.createElement('video');
+     this.drawVideo.muted = true;
+@@ -302,6 +319,31 @@ export default class NativeVideoRecorder {
+     this.onstart();
+   }
+ 
++  private startRecordingCameraDirectly() {
++    this.mimeType = pickMimeType();
++    try {
++      const options: MediaRecorderOptions = {
++        videoBitsPerSecond: this.config.videoBitsPerSecond,
++        audioBitsPerSecond: this.config.audioBitsPerSecond
++      };
++      if(this.mimeType) options.mimeType = this.mimeType;
++      this.mediaRecorder = new MediaRecorder(this.stream, options);
++      const fullMime = this.mimeType || this.mediaRecorder.mimeType || 'video/mp4';
++      this.mimeType = fullMime.split(';')[0].trim();
++      this.mediaRecorder.ondataavailable = (e) => {
++        if(e.data && e.data.size > 0) this.chunks.push(e.data);
++      };
++      this.mediaRecorder.onstop = () => this.emitResult();
++      this.mediaRecorder.start();
++    } catch(err) {
++      this.releaseStream();
++      throw err;
++    }
++
++    this.state = 'recording';
++    this.onstart();
++  }
++
+   // Centre-crop the camera feed to a square and scale it into the output canvas.
+   private drawCroppedFrame() {
+     const v = this.drawVideo;
 diff --git a/src/lang.ts b/src/lang.ts
 index 9601966..552bb53 100644
 --- a/src/lang.ts
