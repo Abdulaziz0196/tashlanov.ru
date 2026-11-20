@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abugram Tekshiruv</title>
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--text:#f2f2f7;--muted:#a3a3b5;--ok:#34c759;--bad:#ff453a;--wait:#a3a3b5}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--text:#14141c;--muted:#5d5d6e}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 6px}p{color:var(--muted);margin:0 0 18px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card);border-radius:12px;padding:12px 14px;margin:8px 0}
+.name{font-weight:600}.host{color:var(--muted);font-size:13px;word-break:break-all}
+.st{font-weight:700;white-space:nowrap}.ok{color:var(--ok)}.bad{color:var(--bad)}.wait{color:var(--wait)}
+#done{margin-top:18px;font-weight:600}
+</style></head><body><main>
+<h1>Abugram tekshiruvi</h1>
+<p><b>VPN'ni o'chiring</b>, keyin shu sahifani oching yoki yangilang va 20 soniya kuting. Natijani skrinshot qilib yuboring.</p>
+<div id="list"></div>
+<div id="done">⏳ Tekshirilmoqda…</div>
+</main>
+<script>
+var checks=[
+ {name:'Telegram (to\'g\'ridan-to\'g\'ri)',ws:'wss://kws2.web.telegram.org/apiws'},
+ {name:'Cloudflare relay (bizniki)',ws:'wss://winter-cake-2d11.tashlanow.workers.dev/kws2/apiws'},
+ {name:'Render',url:'https://abugram-check.onrender.com/'},
+ {name:'Hugging Face',url:'https://abugram-check.hf.space/'},
+ {name:'Vercel',url:'https://abugram-check.vercel.app/'},
+ {name:'Netlify',url:'https://abugram-check.netlify.app/'},
+ {name:'Koyeb',url:'https://abugram-check.koyeb.app/'},
+ {name:'Fly.io',url:'https://fly.io/'},
+ {name:'Railway',url:'https://abugram-check.up.railway.app/'},
+ {name:'Deno',url:'https://fresh.deno.dev/'},
+ {name:'GitHub Pages',url:'https://abdulaziz0196.github.io/tashlanov.ru/abugram/'}
+];
+var list=document.getElementById('list'),left=checks.length;
+function set(el,ok,ms){el.className='st '+(ok?'ok':'bad');el.textContent=ok?'✅ ochiladi ('+(ms/1000).toFixed(1)+'s)':'❌ yo\'q';if(--left===0)document.getElementById('done').textContent='✅ Tayyor. Skrinshot qilib yuboring.';}
+checks.forEach(function(c){
+  var row=document.createElement('div');row.className='row';
+  row.innerHTML='<div><div class="name"></div><div class="host"></div></div><div class="st wait">⏳</div>';
+  row.querySelector('.name').textContent=c.name;row.querySelector('.host').textContent=(c.url||c.ws).replace(/^\w+:\/\//,'').split('/')[0];
+  list.appendChild(row);var st=row.querySelector('.st'),t0=Date.now(),fin=false;
+  function end(ok){if(fin)return;fin=true;set(st,ok,Date.now()-t0);}
+  setTimeout(function(){end(false);},15000);
+  if(c.ws){try{var w=new WebSocket(c.ws,'binary');w.onopen=function(){end(true);try{w.close();}catch(e){}};w.onerror=function(){end(false);};}catch(e){end(false);}}
+  else{fetch(c.url+'?t='+Date.now(),{mode:'no-cors',cache:'no-store'}).then(function(){end(true);},function(){end(false);});}
+});
+</script>
+</body></html>
