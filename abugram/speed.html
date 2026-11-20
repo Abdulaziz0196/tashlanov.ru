@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abugram Tezlik</title>
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--text:#f2f2f7;--muted:#a3a3b5;--ok:#34c759;--bad:#ff453a}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--text:#14141c;--muted:#5d5d6e}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 6px}p{color:var(--muted);margin:0 0 18px}
+.row{background:var(--card);border-radius:12px;padding:12px 14px;margin:8px 0}
+.name{font-weight:600}.res{font-size:15px;margin-top:4px}.ok{color:var(--ok)}.bad{color:var(--bad)}
+</style></head><body><main>
+<h1>Abugram tezlik testi</h1>
+<p><b>VPN'ni o'chiring</b>, shu sahifani yangilang va 30 soniya kuting. Natijani skrinshot qilib yuboring.</p>
+<div id="list"></div><p id="done">⏳ Tekshirilmoqda…</p>
+</main>
+<script>
+var tests=[
+ {name:'Cloudflare 1',url:'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'},
+ {name:'Cloudflare 2',url:'https://unpkg.com/three@0.128.0/build/three.min.js'},
+ {name:'Boshqa (Fastly)',url:'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'}
+];
+var left=tests.length;
+tests.forEach(function(t){
+  var row=document.createElement('div');row.className='row';row.innerHTML='<div class="name"></div><div class="res">⏳</div>';
+  row.querySelector('.name').textContent=t.name;document.getElementById('list').appendChild(row);
+  var res=row.querySelector('.res'),got=0,t0=Date.now(),last=t0,fin=false;
+  var ctrl=new AbortController();
+  function end(full,err){if(fin)return;fin=true;ctrl.abort();
+    var kb=(got/1024).toFixed(1),s=((Date.now()-t0)/1000).toFixed(1);
+    res.className='res '+(full?'ok':'bad');
+    res.textContent=(full?'✅ to\'liq: ':'❌ to\'xtadi: ')+kb+' KB, '+s+'s'+(err?' ('+err+')':'')+(full?'':' · oxirgi baytdan keyin '+((Date.now()-last)/1000).toFixed(1)+'s jim');
+    if(--left===0)document.getElementById('done').textContent='✅ Tayyor. Skrinshot qilib yuboring.';}
+  setTimeout(function(){end(false,'vaqt tugadi');},25000);
+  fetch(t.url+'?r='+Math.random(),{cache:'no-store',signal:ctrl.signal}).then(function(r){
+    var rd=r.body.getReader();
+    function pump(){return rd.read().then(function(x){if(x.done){end(true);return;}got+=x.value.length;last=Date.now();res.textContent='⏳ '+(got/1024).toFixed(1)+' KB';return pump();});}
+    return pump();
+  }).catch(function(e){end(false,(e&&e.name)||'xato');});
+});
+</script></body></html>
