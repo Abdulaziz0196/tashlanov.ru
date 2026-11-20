@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{t as e}from"./cancelEvent-Bs2qkQ0q.js";import{n as t}from"./clickEvent-kJRSYf-I.js";import{Kr as n,Xr as r,Yr as i}from"./appDialogsManager-BAhbw5M-.js";function a(a={}){let o=document.createElement(`a`);o.classList.add(`anchor-copy`),o.dir=`ltr`;let s;return a.mePath&&(o.href=o.innerText=n+a.mePath,s=()=>i(a.mePath)),a.username&&(o.href=n+a.username,o.innerText=`@`+a.username,s=()=>r(a.username)),t(o,t=>{e(t),a.onClick?a.onClick(s):s()}),o}export{a as t};
+//# sourceMappingURL=anchorCopy-Cu9bqdEU.js.map
