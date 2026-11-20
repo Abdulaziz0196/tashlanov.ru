@@ -59,7 +59,7 @@ h2{font-size:clamp(26px,4.5vw,38px);letter-spacing:-.8px;margin-top:6px}
 .sub{color:var(--muted);margin-top:8px;max-width:640px}
 /* downloads */
 .dl{display:grid;gap:14px;margin-top:26px}
-@media(min-width:820px){.dl{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:720px){.dl{grid-template-columns:repeat(2,1fr);max-width:820px}}
 .card{position:relative;background:linear-gradient(180deg,#ffffff14,#ffffff07);border:1px solid var(--line);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:12px}
 .card.rec{border-color:#00d5ff88;box-shadow:0 0 0 1px #00d5ff55,0 24px 60px #00d5ff1c}
 .rec-badge{position:absolute;top:-11px;left:20px;background:linear-gradient(135deg,var(--a1),var(--a2));font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px}
@@ -174,15 +174,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
       <a class="btn" href="web/">🌐 <span data-lang="uz">Ochish</span><span data-lang="ru">Открыть</span></a>
       <div class="meta" data-lang="uz">Brauzer · telefon va kompyuter</div><div class="meta" data-lang="ru">Браузер · телефон и компьютер</div>
     </div>
-    <div class="card" id="card-ios">
-      <div class="ic">🍏</div>
-      <h3 data-lang="uz">iPhone ilovasi (IPA)</h3><h3 data-lang="ru">Приложение iPhone (IPA)</h3>
-      <p data-lang="uz">Esign, Feather yoki Sideloadly orqali o'rnatiladi. Hozir sinov bosqichida.</p>
-      <p data-lang="ru">Устанавливается через Esign, Feather или Sideloadly. Сейчас в тестировании.</p>
-      <div class="status warn">🧪 <span data-lang="uz">Beta — tuzatilmoqda</span><span data-lang="ru">Бета — исправляем</span></div>
-      <a class="btn ghost" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest/download/Abugram.ipa">⬇️ Abugram.ipa</a>
-      <div class="meta" data-lang="uz">Tajribali foydalanuvchilar uchun</div><div class="meta" data-lang="ru">Для опытных пользователей</div>
-    </div>
   </div>
 </section>
 
@@ -217,7 +208,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
   <div class="tabs" role="tablist">
     <button type="button" role="tab" aria-selected="true" data-tab="android">🤖 Android</button>
     <button type="button" role="tab" aria-selected="false" data-tab="web">🌐 <span data-lang="uz">Veb / iPhone</span><span data-lang="ru">Веб / iPhone</span></button>
-    <button type="button" role="tab" aria-selected="false" data-tab="ios">🍏 IPA</button>
   </div>
   <div class="panel" data-panel="android">
     <ol data-lang="uz"><li><b>Abugram.apk</b> ni yuklab oling.</li><li>Faylni oching. Telefon so'rasa, <b>"Noma'lum manbalardan o'rnatish"</b>ga ruxsat bering.</li><li><b>O'rnatish</b> ni bosing.</li><li>Abugram'ni oching va raqamingiz bilan kiring — proxy o'zi yoqiladi.</li></ol>
@@ -226,10 +216,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
   <div class="panel" data-panel="web" hidden>
     <ol data-lang="uz"><li>iPhone'da <b>Safari</b>'da <a href="web/" style="text-decoration:underline">Abugram Web</a> ni oching.</li><li>Pastdagi <b>Ulashish</b> tugmasini bosing.</li><li><b>"На экран Домой" / "Add to Home Screen"</b> ni tanlang.</li><li>Bosh ekrandagi Abugram'ni oching va kiring.</li></ol>
     <ol data-lang="ru"><li>На iPhone откройте <a href="web/" style="text-decoration:underline">Abugram Web</a> в <b>Safari</b>.</li><li>Нажмите <b>Поделиться</b> внизу.</li><li>Выберите <b>«На экран Домой»</b>.</li><li>Откройте Abugram с экрана «Домой» и войдите.</li></ol>
-  </div>
-  <div class="panel" data-panel="ios" hidden>
-    <ol data-lang="uz"><li><b>Abugram.ipa</b> ni yuklab oling.</li><li><b>Esign</b>, <b>Feather</b> yoki kompyuterda <b>Sideloadly</b> orqali o'rnating.</li><li><b>Sozlamalar → Umumiy → VPN va qurilmani boshqarish</b>da sertifikatga ishonch bering.</li></ol>
-    <ol data-lang="ru"><li>Скачайте <b>Abugram.ipa</b>.</li><li>Установите через <b>Esign</b>, <b>Feather</b> или <b>Sideloadly</b> на компьютере.</li><li>В <b>Настройки → Основные → VPN и управление устройством</b> доверьте сертификату.</li></ol>
   </div>
 </section>
 
@@ -250,7 +236,7 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
   <div class="brand"><div class="logo">A</div>Abugram</div>
   <p data-lang="uz">Abugram — Telegram Messenger ochiq kodiga asoslangan norasmiy mijoz (GPL). Telegram bilan rasmiy aloqasi yo'q.</p>
   <p data-lang="ru">Abugram — неофициальный клиент на основе открытого кода Telegram Messenger (GPL). Не связан с Telegram официально.</p>
-  <p><a href="https://github.com/Abdulaziz0196/abugram-android">Android kodi</a> · <a href="https://github.com/Abdulaziz0196/Telegram-iOS">iOS kodi</a> · <a href="web/SOURCE.md">Web kodi</a></p>
+  <p><a href="https://github.com/Abdulaziz0196/abugram-android">Android kodi</a> · <a href="web/SOURCE.md">Web kodi</a></p>
 </div></footer>
 
 <script>
