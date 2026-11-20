@@ -32,6 +32,7 @@ b{color:var(--text)}
 //
 // Ads (need a D1 database bound as DB; without it there are simply no ads):
 //   GET  /ads              the active ads, for the apps
+//   Campaigns: kind &#x27;hours&#x27; | &#x27;days&#x27; (amount = how many, from now) or &#x27;views&#x27; (amount = how many views); a campaign stops by time or by views
 //   POST /ads/seen         body {&quot;ids&quot;:[1,2]}: counts a view of each
 //   GET  /go/&lt;id&gt;          counts a click and redirects to the ad&#x27;s link
 //   GET  /access?uid=&lt;id&gt;  what this Telegram account may use: {&quot;ghost&quot;: bool, &quot;admin&quot;: bool}
@@ -69,6 +70,9 @@ async function db(env) {
       views INTEGER NOT NULL DEFAULT 0,
       clicks INTEGER NOT NULL DEFAULT 0
     )`).run();
+    for(const col of [&#x27;kind TEXT NOT NULL DEFAULT \&#x27;\&#x27;&#x27;, &#x27;ends INTEGER&#x27;, &#x27;views_limit INTEGER&#x27;]) {
+      try { await env.DB.prepare(&#x27;ALTER TABLE ads ADD COLUMN &#x27; + col).run(); } catch(e) {}
+    }
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
       uid INTEGER PRIMARY KEY,
       name TEXT NOT NULL DEFAULT &#x27;&#x27;,
@@ -102,7 +106,8 @@ async function handleAds(request, env, url) {
   if(path === &#x27;/ads&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
     const d = await db(env);
     if(!d) return json({ads: []});
-    const {results} = await d.prepare(&#x27;SELECT id, title, text, image, url FROM ads WHERE active = 1 ORDER BY id DESC LIMIT 5&#x27;).all();
+    const now = Date.now();
+    const {results} = await d.prepare(&#x27;SELECT id, title, text, image, url FROM ads WHERE active = 1 AND (ends IS NULL OR ends &gt; ?) AND (views_limit IS NULL OR views &lt; views_limit) ORDER BY id DESC LIMIT 5&#x27;).bind(now).all();
     return json({ads: results}, 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
   }
 
@@ -204,11 +209,19 @@ async function handleAds(request, env, url) {
       const b = await request.json();
       const fields = [clean(b.title, 120), clean(b.text, 600), clean(b.image, 500), clean(b.url, 500), b.active ? 1 : 0];
       if(fields[3] &amp;&amp; !/^https?:\/\//i.test(fields[3])) return json({error: &#x27;url must start with https://&#x27;}, 400);
+      // the campaign: by hours or days from now, or until a number of views
+      const amount = Math.floor(Number(b.amount) || 0);
+      const kind = [&#x27;hours&#x27;, &#x27;days&#x27;, &#x27;views&#x27;].includes(b.kind) ? b.kind : &#x27;days&#x27;;
+      const now = Date.now();
+      let ends = null, limit = null;
+      if(kind === &#x27;hours&#x27; &amp;&amp; amount &gt; 0) ends = (b.id ? Number(b.starts || now) : now) + amount * 3600e3;
+      if(kind === &#x27;days&#x27; &amp;&amp; amount &gt; 0) ends = (b.id ? Number(b.starts || now) : now) + amount * 864e5;
+      if(kind === &#x27;views&#x27; &amp;&amp; amount &gt; 0) limit = amount;
       if(b.id) {
-        await d.prepare(&#x27;UPDATE ads SET title = ?, text = ?, image = ?, url = ?, active = ? WHERE id = ?&#x27;).bind(...fields, Number(b.id)).run();
+        await d.prepare(&#x27;UPDATE ads SET title = ?, text = ?, image = ?, url = ?, active = ?, kind = ?, ends = ?, views_limit = ? WHERE id = ?&#x27;).bind(...fields, kind, ends, limit, Number(b.id)).run();
         return json({ok: true, id: Number(b.id)});
       }
-      const r = await d.prepare(&#x27;INSERT INTO ads (title, text, image, url, active, created) VALUES (?, ?, ?, ?, ?, ?)&#x27;).bind(...fields, Date.now()).run();
+      const r = await d.prepare(&#x27;INSERT INTO ads (title, text, image, url, active, created, kind, ends, views_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)&#x27;).bind(...fields, now, kind, ends, limit).run();
       return json({ok: true, id: r.meta.last_row_id});
     }
     if(request.method === &#x27;DELETE&#x27;) {
@@ -246,7 +259,7 @@ export default {
         return json({error: String(e &amp;&amp; e.message || e)}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v5).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v6).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>

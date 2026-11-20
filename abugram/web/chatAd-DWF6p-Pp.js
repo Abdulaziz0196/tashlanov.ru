@@ -1,3 +1,0 @@
-//# allFunctionsCalledOnLoad
-import{mountAbugramAdCard as e}from"./ads-ClXDeDNz.js";var t;function n(n,r,i){t&&(t.el.remove(),t=void 0);try{if(i?.appPeersManager?.isBroadcast?.(r))return}catch{return}let a=n.topbar?.container;if(!a)return;let o=document.createElement(`div`);o.className=`abugram-chat-ad-host`,a.after(o),t={chatId:0,el:o},e(o,`chat`)}export{n as mountChatAd};
-//# sourceMappingURL=chatAd-DWF6p-Pp.js.map

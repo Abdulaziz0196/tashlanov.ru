@@ -7,6 +7,7 @@
 //
 // Ads (need a D1 database bound as DB; without it there are simply no ads):
 //   GET  /ads              the active ads, for the apps
+//   Campaigns: kind 'hours' | 'days' (amount = how many, from now) or 'views' (amount = how many views); a campaign stops by time or by views
 //   POST /ads/seen         body {"ids":[1,2]}: counts a view of each
 //   GET  /go/<id>          counts a click and redirects to the ad's link
 //   GET  /access?uid=<id>  what this Telegram account may use: {"ghost": bool, "admin": bool}
@@ -44,6 +45,9 @@ async function db(env) {
       views INTEGER NOT NULL DEFAULT 0,
       clicks INTEGER NOT NULL DEFAULT 0
     )`).run();
+    for(const col of ['kind TEXT NOT NULL DEFAULT \'\'', 'ends INTEGER', 'views_limit INTEGER']) {
+      try { await env.DB.prepare('ALTER TABLE ads ADD COLUMN ' + col).run(); } catch(e) {}
+    }
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
       uid INTEGER PRIMARY KEY,
       name TEXT NOT NULL DEFAULT '',
@@ -77,7 +81,8 @@ async function handleAds(request, env, url) {
   if(path === '/ads' && request.method === 'GET') {
     const d = await db(env);
     if(!d) return json({ads: []});
-    const {results} = await d.prepare('SELECT id, title, text, image, url FROM ads WHERE active = 1 ORDER BY id DESC LIMIT 5').all();
+    const now = Date.now();
+    const {results} = await d.prepare('SELECT id, title, text, image, url FROM ads WHERE active = 1 AND (ends IS NULL OR ends > ?) AND (views_limit IS NULL OR views < views_limit) ORDER BY id DESC LIMIT 5').bind(now).all();
     return json({ads: results}, 200, {'cache-control': 'public, max-age=60'});
   }
 
@@ -179,11 +184,19 @@ async function handleAds(request, env, url) {
       const b = await request.json();
       const fields = [clean(b.title, 120), clean(b.text, 600), clean(b.image, 500), clean(b.url, 500), b.active ? 1 : 0];
       if(fields[3] && !/^https?:\/\//i.test(fields[3])) return json({error: 'url must start with https://'}, 400);
+      // the campaign: by hours or days from now, or until a number of views
+      const amount = Math.floor(Number(b.amount) || 0);
+      const kind = ['hours', 'days', 'views'].includes(b.kind) ? b.kind : 'days';
+      const now = Date.now();
+      let ends = null, limit = null;
+      if(kind === 'hours' && amount > 0) ends = (b.id ? Number(b.starts || now) : now) + amount * 3600e3;
+      if(kind === 'days' && amount > 0) ends = (b.id ? Number(b.starts || now) : now) + amount * 864e5;
+      if(kind === 'views' && amount > 0) limit = amount;
       if(b.id) {
-        await d.prepare('UPDATE ads SET title = ?, text = ?, image = ?, url = ?, active = ? WHERE id = ?').bind(...fields, Number(b.id)).run();
+        await d.prepare('UPDATE ads SET title = ?, text = ?, image = ?, url = ?, active = ?, kind = ?, ends = ?, views_limit = ? WHERE id = ?').bind(...fields, kind, ends, limit, Number(b.id)).run();
         return json({ok: true, id: Number(b.id)});
       }
-      const r = await d.prepare('INSERT INTO ads (title, text, image, url, active, created) VALUES (?, ?, ?, ?, ?, ?)').bind(...fields, Date.now()).run();
+      const r = await d.prepare('INSERT INTO ads (title, text, image, url, active, created, kind, ends, views_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(...fields, now, kind, ends, limit).run();
       return json({ok: true, id: r.meta.last_row_id});
     }
     if(request.method === 'DELETE') {
@@ -221,6 +234,6 @@ export default {
         return json({error: String(e && e.message || e)}, 500);
       }
     }
-    return new Response('Abugram relay is running (v5).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v6).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };
