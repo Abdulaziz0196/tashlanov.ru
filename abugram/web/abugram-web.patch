@@ -78,7 +78,7 @@ index 6c7c795..af88eff 100644
    private onSomethingOpenInsideChange = (force = false) => {
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..57d5fb0
+index 0000000..02b4ed1
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
 @@ -0,0 +1,124 @@
@@ -103,7 +103,7 @@ index 0000000..57d5fb0
 +  const [now, setNow] = createSignal(Date.now());
 +  onMount(() => {
 +    const stop = abugramWatchSockets((records) => {
-+      setSockets(records.slice().reverse().slice(0, 12));
++      setSockets(records.slice().reverse().slice(0, 20));
 +      setNow(Date.now());
 +    });
 +    onCleanup(stop);
@@ -111,7 +111,7 @@ index 0000000..57d5fb0
 +  const kb = (bytes: number) => (bytes / 1024).toFixed(1) + ' KB';
 +  const describe = (r: AbugramSocketRecord) => {
 +    const lived = (((r.closedAt ?? now()) - r.openedAt) / 1000).toFixed(1) + 's';
-+    return `#${r.id} DC${r.dcId} · ${lived} · ⬇${kb(r.bytesIn)} ⬆${kb(r.bytesOut)} · ${r.closedAt ? r.reason : 'ochiq'}`;
++    return `#${r.id} ${r.kind === 'https' ? 'HTTPS' : 'WS'} DC${r.dcId} · ${lived} · ⬇${kb(r.bytesIn)} ⬆${kb(r.bytesOut)} · ${r.closedAt ? r.reason : 'ochiq'}`;
 +  };
 +
 +  const createTabs = async() => {
@@ -477,10 +477,10 @@ index 9601966..552bb53 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/netStats.ts b/src/lib/abugram/netStats.ts
 new file mode 100644
-index 0000000..2c5a6fc
+index 0000000..f5e7bb5
 --- /dev/null
 +++ b/src/lib/abugram/netStats.ts
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,69 @@
 +/**
 + * Abugram: what each relayed connection did (how long it lived, what it carried, why it ended), kept where the
 + * connections live (the MTProto worker) and read by Settings → Abugram over a BroadcastChannel, so a network that
@@ -488,6 +488,7 @@ index 0000000..2c5a6fc
 + */
 +export type AbugramSocketRecord = {
 +  id: number,
++  kind?: 'ws' | 'https',
 +  dcId: number,
 +  openedAt: number,
 +  closedAt?: number,
@@ -497,7 +498,7 @@ index 0000000..2c5a6fc
 +};
 +
 +const CHANNEL = 'abugram-net';
-+const KEEP = 30;
++const KEEP = 40;
 +const records: AbugramSocketRecord[] = [];
 +let nextId = 1;
 +let channel: BroadcastChannel;
@@ -516,8 +517,8 @@ index 0000000..2c5a6fc
 +  return channel;
 +}
 +
-+export function abugramSocketOpened(dcId: number): AbugramSocketRecord {
-+  const record: AbugramSocketRecord = {id: nextId++, dcId, openedAt: Date.now(), bytesIn: 0, bytesOut: 0};
++export function abugramSocketOpened(dcId: number, kind: 'ws' | 'https' = 'ws'): AbugramSocketRecord {
++  const record: AbugramSocketRecord = {id: nextId++, kind, dcId, openedAt: Date.now(), bytesIn: 0, bytesOut: 0};
 +  records.push(record);
 +  if(records.length > KEEP) records.shift();
 +  getChannel()?.postMessage({type: 'all', records});
@@ -792,6 +793,51 @@ index 7e8a6db..6c0cf60 100644
      } else {
        for(const dcOption of this.dcOptions) {
          if(dcOption.id === dcId) {
+diff --git a/src/lib/mtproto/networker.ts b/src/lib/mtproto/networker.ts
+index 72b3e2f..04d67b1 100644
+--- a/src/lib/mtproto/networker.ts
++++ b/src/lib/mtproto/networker.ts
+@@ -832,7 +832,8 @@ export default class MTPNetworker {
+     }
+ 
+     this.sendingLongPoll = true;
+-    const maxWait = 25000;
++    // * Abugram: through the relay a held request is kept short - networks in Russia cut requests that hang open
++    const maxWait = import.meta.env.VITE_ABUGRAM_RELAY ? 8000 : 25000;
+ 
+     this.longPollPending = Date.now() + maxWait;
+     log('send', this.longPollPending);
+diff --git a/src/lib/mtproto/transports/http.ts b/src/lib/mtproto/transports/http.ts
+index 428f9d8..c84e051 100644
+--- a/src/lib/mtproto/transports/http.ts
++++ b/src/lib/mtproto/transports/http.ts
+@@ -1,4 +1,5 @@
+ import type {DcId, TrueDcId} from '@types';
++import {abugramSocketClosed, abugramSocketOpened} from '@lib/abugram/netStats';
+ import pause from '@helpers/schedulers/pause';
+ import {logger, LogTypes} from '@lib/logger';
+ import MTTransport from '@lib/mtproto/transports/transport';
+@@ -50,6 +51,8 @@ export default class HTTP implements MTTransport {
+     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+ 
+     // networkStats.addSent(this.dcId, length);
++    const abugramRecord = abugramSocketOpened(this.dcId, 'https');
++    abugramRecord.bytesOut = body.length;
+     return fetch(this.url, {method: 'POST', body: body as BodyInit, mode, signal: controller.signal})
+     .then(async(response) => {
+       if(response.status !== 200 && !mode) {
+@@ -71,8 +74,11 @@ export default class HTTP implements MTTransport {
+ 
+       const buffer = await response.arrayBuffer();
+       // networkStats.addReceived(this.dcId, buffer.byteLength);
++      abugramRecord.bytesIn = buffer.byteLength;
++      abugramSocketClosed(abugramRecord, 'ok');
+       return new Uint8Array(buffer);
+     }).catch((err) => {
++      abugramSocketClosed(abugramRecord, err instanceof Response ? 'HTTP ' + err.status : (err?.name === 'AbortError' ? 'vaqt tugadi' : 'tarmoq xatosi'));
+       this.setConnected(false);
+       throw err;
+     }).finally(() => {
 diff --git a/src/lib/mtproto/transports/websocket.ts b/src/lib/mtproto/transports/websocket.ts
 index fa10ae2..24265b1 100644
 --- a/src/lib/mtproto/transports/websocket.ts
