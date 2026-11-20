@@ -135,15 +135,16 @@ index b7d2615..6811adb 100644
    scaffoldSolidJSTab({
      title: 'LiteMode.Title',
 diff --git a/src/config/app.ts b/src/config/app.ts
-index 73c35ac..c162e86 100644
+index 73c35ac..7760db0 100644
 --- a/src/config/app.ts
 +++ b/src/config/app.ts
-@@ -35,7 +35,7 @@ const App = {
+@@ -35,7 +35,8 @@ const App = {
  
  // * "Telegram WebK 2.2 (681)" - how the app names itself, in the main menu and under Settings
  export function getAppVersionText() {
 -  return `Telegram Web${App.suffix} ${App.version} (${App.build})`;
-+  return `Abugram Web ${App.version} (${App.build})`;
++  // * "· relay" when the build connects through the Abugram relay (VITE_ABUGRAM_RELAY)
++  return `Abugram Web ${App.version} (${App.build})${import.meta.env.VITE_ABUGRAM_RELAY ? ' · relay' : ''}`;
  }
  
  if(App.isMainDomain) { // use Webogram credentials then
