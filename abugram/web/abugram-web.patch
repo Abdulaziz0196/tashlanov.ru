@@ -1,19 +1,51 @@
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..55472e8
+index 0000000..1b698be
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,99 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
 +import {ABUGRAM_DEFAULTS, AbugramSettings} from '@lib/abugram/settings';
 +import {i18n, LangPackKey} from '@lib/langPack';
 +import {useAppSettings} from '@stores/appSettings';
++import {useSuperTab} from '@components/solidJsTabs/superTabProvider';
++import {toastNew} from '@components/toast';
++import I18n from '@lib/langPack';
++import {createSignal} from 'solid-js';
 +
 +/** Settings → Abugram: the same switches as in Abugram for Android. */
 +const AbugramTab = () => {
++  const [tab] = useSuperTab();
 +  const [appSettings, setAppSettings] = useAppSettings();
++  const [creating, setCreating] = createSignal(false);
++
++  const createTabs = async() => {
++    if(creating()) return;
++    setCreating(true);
++    try {
++      const t = (key: LangPackKey) => I18n.format(key, true);
++      const result = await tab.managers.filtersStorage.abugramCreateTabs({
++        personal: t('Abugram.Tab.Personal'),
++        groups: t('Abugram.Tab.Groups'),
++        publicGroups: t('Abugram.Tab.PublicGroups'),
++        channels: t('Abugram.Tab.Channels'),
++        bots: t('Abugram.Tab.Bots')
++      });
++      if(result.limited) {
++        toastNew({langPackKey: 'Abugram.Tabs.Limit'});
++      } else if(!result.made) {
++        toastNew({langPackKey: 'Abugram.Tabs.None'});
++      } else {
++        toastNew({langPackKey: 'Abugram.Tabs.Done', langPackArguments: ['' + result.made]});
++      }
++    } catch(err) {
++      toastNew({langPackKey: 'Error.AnError'});
++    } finally {
++      setCreating(false);
++    }
++  };
 +
 +  const get = (key: keyof AbugramSettings) => appSettings.abugram?.[key] ?? ABUGRAM_DEFAULTS[key];
 +  const set = (key: keyof AbugramSettings, value: boolean) => {
@@ -36,6 +68,13 @@ index 0000000..55472e8
 +
 +  return (
 +    <>
++      <Section name="Abugram.Tabs" caption="Abugram.Tabs.Info">
++        <Row clickable={createTabs} disabled={creating()}>
++          <Row.Icon icon="folder" />
++          <Row.Title>{i18n('Abugram.Tabs.Create')}</Row.Title>
++          <Row.Subtitle>{i18n('Abugram.Tabs.Create.Sub')}</Row.Subtitle>
++        </Row>
++      </Section>
 +      <Section name="Abugram.Ghost" caption="Abugram.Ghost.Info">
 +        <Toggle key="ghostRead" title="Abugram.GhostRead" subtitle="Abugram.GhostRead.Sub" />
 +        <Toggle key="ghostTyping" title="Abugram.GhostTyping" subtitle="Abugram.GhostTyping.Sub" />
@@ -48,6 +87,16 @@ index 0000000..55472e8
 +      </Section>
 +      <Section name="Abugram.Look">
 +        <Toggle key="hideStories" title="Abugram.HideStories" subtitle="Abugram.HideStories.Sub" />
++        <Row>
++          <Row.CheckboxFieldToggle>
++            <CheckboxFieldTsx toggle checked={appSettings.showPeerIds} onChange={(checked) => setAppSettings('showPeerIds', checked)} />
++          </Row.CheckboxFieldToggle>
++          <Row.Title>{i18n('Abugram.ShowIds')}</Row.Title>
++          <Row.Subtitle>{i18n('Abugram.ShowIds.Sub')}</Row.Subtitle>
++        </Row>
++      </Section>
++      <Section name="Abugram.Calls">
++        <Toggle key="confirmCalls" title="Abugram.ConfirmCalls" subtitle="Abugram.ConfirmCalls.Sub" />
 +      </Section>
 +    </>
 +  );
@@ -98,7 +147,7 @@ index 73c35ac..c162e86 100644
  
  if(App.isMainDomain) { // use Webogram credentials then
 diff --git a/src/config/state.ts b/src/config/state.ts
-index 78c9c84..992e7dc 100644
+index 78c9c84..cdae27a 100644
 --- a/src/config/state.ts
 +++ b/src/config/state.ts
 @@ -57,6 +57,7 @@ export type AutoDownloadPeerTypeSettings = {
@@ -109,11 +158,33 @@ index 78c9c84..992e7dc 100644
    messagesTextSize: number,
    distanceUnit: 'kilometers' | 'miles',
    // Only written once the reader flips a story's weather widget; until then the unit follows the
+@@ -330,7 +331,7 @@ export const DEFAULT_THEME: Theme = {
+     _: 'themeSettings',
+     pFlags: {},
+     base_theme: {_: 'baseThemeClassic'},
+-    accent_color: 0x3390ec,
++    accent_color: 0x6A5CFF, // * Abugram's purple (Telegram's blue: 0x3390ec)
+     message_colors: [0x5CA853],
+     wallpaper: {
+       _: 'wallPaper',
+diff --git a/src/helpers/themeController.ts b/src/helpers/themeController.ts
+index 8fe1cdb..3972893 100644
+--- a/src/helpers/themeController.ts
++++ b/src/helpers/themeController.ts
+@@ -124,7 +124,7 @@ const colorMap: {
+   }
+ } = {
+   day: {
+-    'primary-color': '#3390ec',
++    'primary-color': '#6A5CFF', // * Abugram's purple (Telegram's blue: #3390ec)
+     'message-out-primary-color': '#5CA853',
+     'message-background-color': '#ffffff',
+     'surface-color': '#ffffff',
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..3529e5b 100644
+index 9601966..9d902da 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
-@@ -1,4 +1,25 @@
+@@ -1,4 +1,44 @@
  const lang = {
 +  'Abugram.Title': 'Abugram',
 +  'Abugram.Settings.Row': 'Abugram',
@@ -136,15 +207,34 @@ index 9601966..3529e5b 100644
 +  'Abugram.Look': 'Ko\'rinish · Внешний вид',
 +  'Abugram.HideStories': 'Story panelini yashirish',
 +  'Abugram.HideStories.Sub': 'Скрыть панель историй',
++  'Abugram.ShowIds': 'ID ko\'rsatish',
++  'Abugram.ShowIds.Sub': 'Показывать ID в профиле',
++  'Abugram.Calls': 'Qo\'ng\'iroqlar · Звонки',
++  'Abugram.ConfirmCalls': 'Qo\'ng\'iroqdan oldin so\'rash',
++  'Abugram.ConfirmCalls.Sub': 'Спрашивать перед звонком',
++  'Abugram.CallConfirm.Title': 'Qo\'ng\'iroq qilasizmi?',
++  'Abugram.CallConfirm.Text': '%1$@ ga qo\'ng\'iroq qilinsinmi? · Позвонить %1$@?',
++  'Abugram.Tabs': 'Chat tablari · Вкладки чатов',
++  'Abugram.Tabs.Info': 'Shaxsiy, Guruhlar, Ommaviy guruhlar, Kanallar va Botlar tablari Telegram papkasi sifatida yaratiladi va barcha qurilmalaringizda ko\'rinadi. Keyin ularni Sozlamalar → Chat Folders\'da o\'zgartirish yoki o\'chirish mumkin.',
++  'Abugram.Tabs.Create': 'Tablarni yaratish',
++  'Abugram.Tabs.Create.Sub': 'Создать вкладки: личные, группы, каналы, боты',
++  'Abugram.Tabs.Done': 'Tablar yaratildi: %1$@',
++  'Abugram.Tabs.None': 'Bu tablar allaqachon bor',
++  'Abugram.Tabs.Limit': 'Papkalar chegarasiga yetildi: ba\'zi tablar yaratilmadi. Keraksiz papkani o\'chirib qayta urinib ko\'ring.',
++  'Abugram.Tab.Personal': 'Shaxsiy',
++  'Abugram.Tab.Groups': 'Guruhlar',
++  'Abugram.Tab.PublicGroups': 'Ommaviy',
++  'Abugram.Tab.Channels': 'Kanallar',
++  'Abugram.Tab.Bots': 'Botlar',
    'Animations': 'Animations',
    'AttachAlbum': 'Album',
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
 new file mode 100644
-index 0000000..a654070
+index 0000000..32aef21
 --- /dev/null
 +++ b/src/lib/abugram/settings.ts
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,64 @@
 +/**
 + * Abugram feature switches, kept in `settings.abugram` of the account state (Settings → Abugram).
 + * Everything is off by default except hiding sponsored messages, as in Abugram for Android.
@@ -156,7 +246,8 @@ index 0000000..a654070
 +  ghostStories: boolean,
 +  keepDeleted: boolean,
 +  hideSponsored: boolean,
-+  hideStories: boolean
++  hideStories: boolean,
++  confirmCalls: boolean
 +};
 +
 +export const ABUGRAM_DEFAULTS: AbugramSettings = {
@@ -166,7 +257,8 @@ index 0000000..a654070
 +  ghostStories: false,
 +  keepDeleted: false,
 +  hideSponsored: true,
-+  hideStories: false
++  hideStories: false,
++  confirmCalls: true
 +};
 +
 +export function getAbugramSettings(settings: {abugram?: Partial<AbugramSettings>} | undefined): AbugramSettings {
@@ -207,6 +299,39 @@ index 0000000..a654070
 +  }
 +  return {block: false};
 +}
+diff --git a/src/lib/appImManager.ts b/src/lib/appImManager.ts
+index 496bbaf..72fad9c 100644
+--- a/src/lib/appImManager.ts
++++ b/src/lib/appImManager.ts
+@@ -165,6 +165,7 @@ import useLockScreenShortcut from '@appManagers/utils/useLockScreenShortcut';
+ import IS_WEB_APP_BROWSER_SUPPORTED from '@environment/webAppBrowserSupport';
+ import createChatAudio, {ChatAudioController} from '@components/chat/audio';
+ import AudioAssetPlayer from '@helpers/audioAssetPlayer';
++import {getAbugramSettings} from '@lib/abugram/settings';
+ import {useAppSettings} from '@stores/appSettings';
+ import useReducedMotion from '@stores/reducedMotion';
+ import {MessageSendingParams, MyMessage} from '@appManagers/appMessagesManager';
+@@ -2349,6 +2350,20 @@ export class AppImManager extends EventListenerBase<{
+         return;
+       }
+ 
++      // * Abugram: "confirm before calling" (Settings → Abugram), against a call placed by a slip of the finger
++      if(getAbugramSettings(useAppSettings()[0]).confirmCalls) {
++        try {
++          await confirmationPopup({
++            titleLangKey: 'Abugram.CallConfirm.Title',
++            descriptionLangKey: 'Abugram.CallConfirm.Text',
++            descriptionLangArgs: [await wrapPeerTitle({peerId: userId.toPeerId()})],
++            button: {langKey: 'Call'}
++          });
++        } catch{
++          return;
++        }
++      }
++
+       await this.discardCurrentCall(userId.toPeerId(), 'Call');
+ 
+       await callsController.startCallInternal(userId, type === 'video', account);
 diff --git a/src/lib/appManagers/apiManager.ts b/src/lib/appManagers/apiManager.ts
 index 9f14737..0a32613 100644
 --- a/src/lib/appManagers/apiManager.ts
@@ -334,7 +459,7 @@ index 7e8a6db..d6e76c7 100644
  
    return chosenServer;
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..8f5208e 100644
+index 02c16ac..9009d2d 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -345,10 +470,11 @@ index 02c16ac..8f5208e 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,16 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,22 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
++    {id: 'AppAbugramTab:Abugram.Calls', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Calls'},
 +    {id: 'AppAbugramTab:Abugram.Ghost', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Ghost'},
 +    {id: 'AppAbugramTab:Abugram.GhostOnline', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostOnline'},
 +    {id: 'AppAbugramTab:Abugram.GhostRead', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostRead'},
@@ -359,9 +485,116 @@ index 02c16ac..8f5208e 100644
 +    {id: 'AppAbugramTab:Abugram.KeepDeleted', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.KeepDeleted'},
 +    {id: 'AppAbugramTab:Abugram.Look', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Look'},
 +    {id: 'AppAbugramTab:Abugram.Messages', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Messages'},
++    {id: 'AppAbugramTab:Abugram.ShowIds', sectionId: 'AppAbugramTab', kind: 'toggle', titleLangKey: 'Abugram.ShowIds'},
++    {id: 'AppAbugramTab:Abugram.ShowIds.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.ShowIds.Sub'},
++    {id: 'AppAbugramTab:Abugram.Tabs', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Tabs'},
++    {id: 'AppAbugramTab:Abugram.Tabs.Create', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create'},
++    {id: 'AppAbugramTab:Abugram.Tabs.Create.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create.Sub'},
      {id: 'AppActiveSessionsTab:AuthSessions.DeviceName', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.DeviceName'},
      {id: 'AppActiveSessionsTab:AuthSessions.IncompleteAttempts', sectionId: 'AppActiveSessionsTab', kind: 'subsection', titleLangKey: 'AuthSessions.IncompleteAttempts'},
      {id: 'AppActiveSessionsTab:AuthSessions.RenameDevice', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.RenameDevice'},
+diff --git a/src/lib/storages/filters.ts b/src/lib/storages/filters.ts
+index 5a42652..2b7df9a 100644
+--- a/src/lib/storages/filters.ts
++++ b/src/lib/storages/filters.ts
+@@ -727,6 +727,97 @@ export default class FiltersStorage extends AppManager {
+     }
+   }
+ 
++  /**
++   * Abugram: makes the chat tabs Personal, Groups, Public groups, Channels and Bots as ordinary folders, so they show
++   * on every device of the account. Telegram's folder flags cannot tell a public group from a private one, so the
++   * public groups are listed by name (at most 100, as a folder holds): "Groups" leaves them out, "Public groups" has
++   * them. A tab whose title a folder has already is skipped. Returns how many were made, and whether the folder limit
++   * stopped the rest.
++   */
++  public async abugramCreateTabs(titles: {personal: string, groups: string, publicGroups: string, channels: string, bots: string}) {
++    const publicGroups: InputPeer[] = [];
++    const publicGroupIds = new Set<PeerId>();
++    let offsetDate = 0, offsetId = 0, offsetPeer: InputPeer = {_: 'inputPeerEmpty'};
++    for(let page = 0; page < 10 && publicGroups.length < 100; ++page) {
++      const res = await this.apiManager.invokeApi('messages.getDialogs', {
++        offset_date: offsetDate,
++        offset_id: offsetId,
++        offset_peer: offsetPeer,
++        limit: 100,
++        hash: '0'
++      });
++      if(res._ === 'messages.dialogsNotModified') break;
++      this.appUsersManager.saveApiUsers(res.users);
++      this.appChatsManager.saveApiChats(res.chats);
++
++      const dialogPeerIds = new Set(res.dialogs.map((dialog) => this.appPeersManager.getPeerId((dialog as any).peer)).filter(Boolean));
++      for(const chat of res.chats) {
++        if(chat._ !== 'channel' || !chat.pFlags.megagroup) continue;
++        const isPublic = !!chat.username || !!chat.usernames?.some((username) => username.pFlags.active);
++        const peerId = chat.id.toPeerId(true);
++        if(!isPublic || !dialogPeerIds.has(peerId) || publicGroupIds.has(peerId)) continue;
++        publicGroupIds.add(peerId);
++        publicGroups.push(this.appPeersManager.getInputPeerById(peerId));
++        if(publicGroups.length >= 100) break;
++      }
++
++      if(res._ !== 'messages.dialogsSlice' || res.dialogs.length < 100) break;
++      const last = res.dialogs[res.dialogs.length - 1] as any;
++      const lastPeerId = this.appPeersManager.getPeerId(last.peer);
++      const lastMessage = res.messages.find((message) => (message as any).id === last.top_message &&
++        this.appPeersManager.getPeerId((message as any).peer_id) === lastPeerId);
++      offsetDate = (lastMessage as any)?.date || 0;
++      offsetId = last.top_message;
++      offsetPeer = this.appPeersManager.getInputPeerById(lastPeerId);
++    }
++
++    const make = (title: string, emoticon: string, pFlags: DialogFilter.dialogFilter['pFlags'], include: InputPeer[] = [], exclude: InputPeer[] = []): MyDialogFilter => ({
++      ...copy(LOCAL_FILTER),
++      pFlags,
++      title: {_: 'textWithEntities', text: title, entities: []},
++      emoticon,
++      include_peers: include,
++      exclude_peers: exclude,
++      includePeerIds: include.map((peer) => this.appPeersManager.getPeerId(peer)),
++      excludePeerIds: exclude.map((peer) => this.appPeersManager.getPeerId(peer))
++    } as MyDialogFilter);
++
++    const tabs: MyDialogFilter[] = [
++      make(titles.personal, '👤', {contacts: true, non_contacts: true}),
++      make(titles.groups, '👥', {groups: true}, [], publicGroups),
++      publicGroups.length ? make(titles.publicGroups, '👥', {}, publicGroups) : undefined,
++      make(titles.channels, '📢', {broadcasts: true}),
++      make(titles.bots, '🤖', {bots: true})
++    ].filter(Boolean);
++
++    const existing = new Set(Object.values(this.filters).map((filter) => {
++      const title = (filter as DialogFilter.dialogFilter).title;
++      return (typeof(title) === 'string' ? title : title?.text || '').trim().toLowerCase();
++    }));
++
++    // * made last to first, each put right after "All chats", so they line up in the order above
++    const limit = await this.apiManager.getLimit('folders');
++    const toMake = tabs.filter((tab) => !existing.has(tab.title.text.toLowerCase()));
++    const room = limit - Object.keys(this.filters).filter((id) => !REAL_FOLDERS.has(+id)).length;
++    let limited = toMake.length > room;
++    toMake.splice(Math.max(0, room));
++    let made = 0;
++    for(const tab of toMake.reverse()) {
++      try {
++        await this.createDialogFilter(tab, true);
++        ++made;
++      } catch(err) {
++        if((err as ApiError)?.type === 'DIALOG_FILTERS_TOO_MUCH' || (err as ApiError)?.type === 'FILTERS_TOO_MUCH') {
++          limited = true;
++          break;
++        }
++        throw err;
++      }
++    }
++
++    return {made, limited, publicGroups: publicGroups.length};
++  }
++
+   public getSuggestedDialogsFilters() {
+     return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
+   }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
 index 6e592cb..6a0f848 100644
 --- a/src/scss/partials/_leftSidebar.scss
