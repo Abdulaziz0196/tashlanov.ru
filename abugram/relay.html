@@ -24,21 +24,34 @@ b{color:var(--text)}
 </ol>
 <button id="copy">📋 Kodni nusxalash</button>
 <pre id="code">// Abugram relay: lets Abugram Web reach Telegram where *.web.telegram.org is blocked.
-// It only forwards WebSocket connections to Telegram&#x27;s own web endpoints: wss://&lt;relay&gt;/&lt;host&gt;/&lt;path&gt;
-// goes to wss://&lt;host&gt;.web.telegram.org/&lt;path&gt;. The MTProto traffic inside stays encrypted end to end
-// between the app and Telegram; the relay cannot read it. Anything else gets a plain page.
+// It only forwards to Telegram&#x27;s own web endpoints:
+//   https://&lt;relay&gt;/&lt;host&gt;/apiw1 -&gt; https://&lt;host&gt;.web.telegram.org/apiw1 (plain HTTPS requests)
+//   wss://&lt;relay&gt;/&lt;host&gt;/apiws   -&gt; wss://&lt;host&gt;.web.telegram.org/apiws  (WebSocket)
+// The MTProto traffic inside stays encrypted end to end between the app and Telegram; the relay cannot
+// read it. Anything else gets a plain page.
+const HTTP_ROUTE = /^\/((?:pluto|venus|aurora|vesta|flora)(?:-[a-z0-9]+)*)\/(apiw(?:_test)?1)$/i;
+const WS_ROUTE = /^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i;
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    const match = url.pathname.match(/^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i);
-    if(!match) {
-      return new Response(&#x27;Abugram relay is running.&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    const http = url.pathname.match(HTTP_ROUTE);
+    if(http) {
+      const target = &#x27;https://&#x27; + http[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + http[2] + url.search;
+      const response = await fetch(new Request(target, request));
+      const headers = new Headers(response.headers);
+      headers.set(&#x27;access-control-allow-origin&#x27;, &#x27;*&#x27;);
+      return new Response(response.body, {status: response.status, headers});
     }
-    if((request.headers.get(&#x27;Upgrade&#x27;) || &#x27;&#x27;).toLowerCase() !== &#x27;websocket&#x27;) {
-      return new Response(&#x27;Expected a WebSocket&#x27;, {status: 426});
+    const ws = url.pathname.match(WS_ROUTE);
+    if(ws) {
+      if((request.headers.get(&#x27;Upgrade&#x27;) || &#x27;&#x27;).toLowerCase() !== &#x27;websocket&#x27;) {
+        return new Response(&#x27;Expected a WebSocket&#x27;, {status: 426});
+      }
+      const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
+      return fetch(new Request(target, request));
     }
-    const target = &#x27;https://&#x27; + match[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + match[2] + url.search;
-    return fetch(new Request(target, request));
+    return new Response(&#x27;Abugram relay is running (v2).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
