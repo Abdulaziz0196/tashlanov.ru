@@ -73,6 +73,9 @@ async function db(env) {
     for(const col of [&#x27;kind TEXT NOT NULL DEFAULT \&#x27;\&#x27;&#x27;, &#x27;ends INTEGER&#x27;, &#x27;views_limit INTEGER&#x27;]) {
       try { await env.DB.prepare(&#x27;ALTER TABLE ads ADD COLUMN &#x27; + col).run(); } catch(e) {}
     }
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ad_views (
+      ad_id INTEGER NOT NULL, h TEXT NOT NULL, PRIMARY KEY (ad_id, h)
+    )`).run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
       uid INTEGER PRIMARY KEY,
       name TEXT NOT NULL DEFAULT &#x27;&#x27;,
@@ -114,9 +117,22 @@ async function handleAds(request, env, url) {
   if(path === &#x27;/ads/seen&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
     const d = await db(env);
     if(!d) return json({ok: true});
-    let ids = [];
-    try { ids = ((await request.json()).ids || []).map(Number).filter((n) =&gt; Number.isInteger(n) &amp;&amp; n &gt; 0).slice(0, 5); } catch(e) {}
-    if(ids.length) await d.batch(ids.map((id) =&gt; d.prepare(&#x27;UPDATE ads SET views = views + 1 WHERE id = ?&#x27;).bind(id)));
+    let b = {};
+    try { b = await request.json(); } catch(e) {}
+    const ids = (b.ids || []).map(Number).filter((n) =&gt; Number.isInteger(n) &amp;&amp; n &gt; 0).slice(0, 5);
+    const uid = Number(b.uid);
+    const stmts = [];
+    let h = null;
+    if(Number.isSafeInteger(uid) &amp;&amp; uid &gt; 0) {
+      const digest = await crypto.subtle.digest(&#x27;SHA-256&#x27;, new TextEncoder().encode(&#x27;abugram-user:&#x27; + uid));
+      h = [...new Uint8Array(digest)].map((x) =&gt; x.toString(16).padStart(2, &#x27;0&#x27;)).join(&#x27;&#x27;);
+    }
+    for(const id of ids) {
+      // every view counts; one account counts once in the unique views
+      stmts.push(d.prepare(&#x27;UPDATE ads SET views = views + 1 WHERE id = ?&#x27;).bind(id));
+      if(h) stmts.push(d.prepare(&#x27;INSERT OR IGNORE INTO ad_views (ad_id, h) VALUES (?, ?)&#x27;).bind(id, h));
+    }
+    if(stmts.length) await d.batch(stmts);
     return json({ok: true});
   }
 
@@ -202,7 +218,7 @@ async function handleAds(request, env, url) {
     const d = await db(env);
     if(!d) return json({error: &#x27;no database bound as DB&#x27;}, 500);
     if(request.method === &#x27;GET&#x27;) {
-      const {results} = await d.prepare(&#x27;SELECT * FROM ads ORDER BY id DESC&#x27;).all();
+      const {results} = await d.prepare(&#x27;SELECT ads.*, (SELECT COUNT(*) FROM ad_views v WHERE v.ad_id = ads.id) AS unique_views FROM ads ORDER BY id DESC&#x27;).all();
       return json({ads: results});
     }
     if(request.method === &#x27;POST&#x27;) {
@@ -259,7 +275,7 @@ export default {
         return json({error: String(e &amp;&amp; e.message || e)}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v6).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v7).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>

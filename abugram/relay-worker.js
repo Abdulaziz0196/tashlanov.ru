@@ -48,6 +48,9 @@ async function db(env) {
     for(const col of ['kind TEXT NOT NULL DEFAULT \'\'', 'ends INTEGER', 'views_limit INTEGER']) {
       try { await env.DB.prepare('ALTER TABLE ads ADD COLUMN ' + col).run(); } catch(e) {}
     }
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ad_views (
+      ad_id INTEGER NOT NULL, h TEXT NOT NULL, PRIMARY KEY (ad_id, h)
+    )`).run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
       uid INTEGER PRIMARY KEY,
       name TEXT NOT NULL DEFAULT '',
@@ -89,9 +92,22 @@ async function handleAds(request, env, url) {
   if(path === '/ads/seen' && request.method === 'POST') {
     const d = await db(env);
     if(!d) return json({ok: true});
-    let ids = [];
-    try { ids = ((await request.json()).ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 5); } catch(e) {}
-    if(ids.length) await d.batch(ids.map((id) => d.prepare('UPDATE ads SET views = views + 1 WHERE id = ?').bind(id)));
+    let b = {};
+    try { b = await request.json(); } catch(e) {}
+    const ids = (b.ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 5);
+    const uid = Number(b.uid);
+    const stmts = [];
+    let h = null;
+    if(Number.isSafeInteger(uid) && uid > 0) {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('abugram-user:' + uid));
+      h = [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join('');
+    }
+    for(const id of ids) {
+      // every view counts; one account counts once in the unique views
+      stmts.push(d.prepare('UPDATE ads SET views = views + 1 WHERE id = ?').bind(id));
+      if(h) stmts.push(d.prepare('INSERT OR IGNORE INTO ad_views (ad_id, h) VALUES (?, ?)').bind(id, h));
+    }
+    if(stmts.length) await d.batch(stmts);
     return json({ok: true});
   }
 
@@ -177,7 +193,7 @@ async function handleAds(request, env, url) {
     const d = await db(env);
     if(!d) return json({error: 'no database bound as DB'}, 500);
     if(request.method === 'GET') {
-      const {results} = await d.prepare('SELECT * FROM ads ORDER BY id DESC').all();
+      const {results} = await d.prepare('SELECT ads.*, (SELECT COUNT(*) FROM ad_views v WHERE v.ad_id = ads.id) AS unique_views FROM ads ORDER BY id DESC').all();
       return json({ads: results});
     }
     if(request.method === 'POST') {
@@ -234,6 +250,6 @@ export default {
         return json({error: String(e && e.message || e)}, 500);
       }
     }
-    return new Response('Abugram relay is running (v6).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v7).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };
