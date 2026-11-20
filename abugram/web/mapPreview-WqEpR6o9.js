@@ -1,3 +1,0 @@
-//# allFunctionsCalledOnLoad
-import{a as e}from"./langPack-hHGCdTaG.js";import{p as t}from"./solid-B0Du5GQu.js";import{o as n}from"./sticker-CezVbKjR.js";import{P as r}from"./checkboxFieldTsx-Bl4BUp--.js";import{T as i}from"./shortcutListener-BbQksD9j.js";import{$r as a}from"./appDialogsManager-BAhbw5M-.js";import{t as o}from"./confirmOpenGoogleMaps-CYZo7SWb.js";var s={mapPreview:`_mapPreview_txjnm_1`},c=320,l=160,u=15;function d(d){return t(i,{get class(){return s.mapPreview},get"aria-label"(){return e(`Map`).textContent},onClick:()=>o(d.geo),ref:e=>{r({photo:a(d.geo,c,l,u),container:e,middleware:n().get(),boxWidth:c,boxHeight:l})}})}export{d as t};
-//# sourceMappingURL=mapPreview-WqEpR6o9.js.map
