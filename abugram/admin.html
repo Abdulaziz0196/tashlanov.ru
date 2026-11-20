@@ -53,6 +53,14 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
     <label for="url">Havola (bosilganda ochiladi)</label><input id="url" maxlength="500" placeholder="https://t.me/kanal yoki https://sayt.uz">
     <label for="image">Rasm havolasi (ixtiyoriy)</label><input id="image" maxlength="500" placeholder="https://.../rasm.jpg">
     <img class="prev" id="prev" alt="" hidden>
+    <label for="kind">Kampaniya turi</label>
+    <select id="kind" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit">
+      <option value="hours">Soatlik (necha soat)</option>
+      <option value="days" selected>Kunlik (necha kun)</option>
+      <option value="views">Ko'rishlar soni bo'yicha</option>
+    </select>
+    <label for="amount">Miqdori</label><input id="amount" type="number" min="1" value="7" inputmode="numeric">
+    <p class="ad-text" style="margin:6px 0 0">Kampaniya shu muddat yoki shuncha ko'rish tugaguncha turadi. Odam ko'rgan bo'lsa ham o'chmaydi.</p>
     <label class="check"><input type="checkbox" id="active" checked> Faol (ilovada ko'rinadi)</label>
     <div class="row" style="margin-top:14px"><button id="save">Saqlash</button><button class="ghost" id="reset">Tozalash</button></div>
     <div class="msg" id="formMsg"></div>
@@ -117,7 +125,8 @@ function load(){
       var ctr=ad.views?((ad.clicks/ad.views)*100).toFixed(1)+'%':'—';
       c.innerHTML='<div class="row" style="justify-content:space-between"><div class="ad-title"></div><span class="pill '+(ad.active?'on">Faol':'off">O\'chiq')+'</span></div><div class="ad-text"></div><div class="stats"><span>Ko\'rildi: <b>'+ad.views+'</b></span><span>Bosildi: <b>'+ad.clicks+'</b></span><span>CTR: <b>'+ctr+'</b></span></div><div class="row" style="margin-top:10px"><button class="ghost" data-a="edit">Tahrirlash</button><button class="ghost" data-a="toggle">'+(ad.active?'O\'chirish':'Yoqish')+'</button><button class="danger" data-a="del">O\'chirib tashlash</button></div>';
       c.querySelector('.ad-title').textContent=ad.title||'(sarlavhasiz)';
-      c.querySelector('.ad-text').textContent=(ad.text||'')+(ad.url?'\n'+ad.url:'');
+      var what=ad.kind==='views'?('ko\'rishlar: '+(ad.views_limit||'—')):(ad.kind==='hours'?'soatlik':'kunlik');
+      c.querySelector('.ad-text').textContent=(ad.text||'')+(ad.url?'\n'+ad.url:'')+'\n'+what+(ad.ends?' · tugaydi: '+new Date(ad.ends).toLocaleString('ru-RU'):'');
       c.querySelector('[data-a=edit]').onclick=function(){fill(ad);window.scrollTo({top:0,behavior:'smooth'});};
       c.querySelector('[data-a=toggle]').onclick=function(){api('POST','/admin/ads',Object.assign({},ad,{active:ad.active?0:1})).then(load);};
       c.querySelector('[data-a=del]').onclick=function(){if(confirm('Reklama o\'chirib tashlansinmi?'))api('DELETE','/admin/ads?id='+ad.id).then(load);};
@@ -126,14 +135,14 @@ function load(){
   }).catch(function(e){msg($('formMsg'),e.message);});
 }
 function fill(ad){
-  $('id').value=ad?ad.id:'';$('title').value=ad?ad.title:'';$('text').value=ad?ad.text:'';$('url').value=ad?ad.url:'';$('image').value=ad?ad.image:'';$('active').checked=ad?!!ad.active:true;
+  $('id').value=ad?ad.id:'';$('kind').value=ad&&ad.kind?ad.kind:'days';$('amount').value=ad?'':'7';$('title').value=ad?ad.title:'';$('text').value=ad?ad.text:'';$('url').value=ad?ad.url:'';$('image').value=ad?ad.image:'';$('active').checked=ad?!!ad.active:true;
   $('formTitle').textContent=ad?'Reklamani tahrirlash #'+ad.id:'Yangi reklama';preview();
 }
 function preview(){var u=$('image').value.trim();$('prev').hidden=!/^https:\/\//.test(u);if(!$('prev').hidden)$('prev').src=u;}
 $('image').oninput=preview;
 $('enter').onclick=function(){pw=$('pw').value.trim();api('GET','/admin/ads').then(function(){try{localStorage.setItem('abugram-admin',pw);}catch(e){}showPanel();}).catch(function(e){msg($('loginMsg'),e.message);});};
 $('save').onclick=function(){
-  var body={id:$('id').value?Number($('id').value):undefined,title:$('title').value.trim(),text:$('text').value.trim(),url:$('url').value.trim(),image:$('image').value.trim(),active:$('active').checked?1:0};
+  var body={id:$('id').value?Number($('id').value):undefined,title:$('title').value.trim(),text:$('text').value.trim(),url:$('url').value.trim(),image:$('image').value.trim(),active:$('active').checked?1:0,kind:$('kind').value,amount:Number($('amount').value)||0};
   if(!body.title&&!body.text){msg($('formMsg'),'Sarlavha yoki matn yozing');return;}
   if(body.url&&!/^https?:\/\//.test(body.url)){msg($('formMsg'),'Havola https:// bilan boshlansin');return;}
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});

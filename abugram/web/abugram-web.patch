@@ -1,6 +1,6 @@
 diff --git a/src/components/abugramMiniPlayer.ts b/src/components/abugramMiniPlayer.ts
 new file mode 100644
-index 0000000..a2dc111
+index 0000000..276e7c5
 --- /dev/null
 +++ b/src/components/abugramMiniPlayer.ts
 @@ -0,0 +1,70 @@
@@ -23,7 +23,7 @@ index 0000000..a2dc111
 +  return artist ? artist + ' — ' + name : name;
 +}
 +
-+export function mountAbugramMiniPlayer(container: HTMLElement) {
++export function mountAbugramMiniPlayer(anchor: HTMLElement) {
 +  const bar = document.createElement('div');
 +  bar.className = 'abugram-mini-player';
 +  bar.hidden = true;
@@ -33,7 +33,7 @@ index 0000000..a2dc111
 +  const toggle = bar.querySelector('.abugram-mini-toggle') as HTMLButtonElement;
 +  const titleBtn = bar.querySelector('.abugram-mini-title') as HTMLButtonElement;
 +  const close = bar.querySelector('.abugram-mini-close') as HTMLButtonElement;
-+  container.prepend(bar);
++  anchor.after(bar);
 +
 +  let current: {message: any, doc: any, peerId: any} | undefined;
 +  const show = (details: any) => {
@@ -90,7 +90,7 @@ index adcaed5..10b7338 100644
        this.inited = undefined;
      } else if(!this.inited) {
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
-index 6c7c795..5cf631f 100644
+index 6c7c795..91910fa 100644
 --- a/src/components/sidebarLeft/index.ts
 +++ b/src/components/sidebarLeft/index.ts
 @@ -479,6 +479,7 @@ export class AppSidebarLeft extends SidebarSlider {
@@ -101,7 +101,7 @@ index 6c7c795..5cf631f 100644
      appDialogsManager.onSomeDrawerToggle = () => {
        this.onSomethingOpenInsideChange();
      };
-@@ -580,6 +581,73 @@ export class AppSidebarLeft extends SidebarSlider {
+@@ -580,6 +581,76 @@ export class AppSidebarLeft extends SidebarSlider {
    }
  
    private isAnimatingCollapse = false;
@@ -164,7 +164,10 @@ index 6c7c795..5cf631f 100644
 +    update();
 +
 +    // * Abugram: the music playing stays on screen as a bar at the top (like Telegram's mini player)
-+    import('@components/abugramMiniPlayer').then(({mountAbugramMiniPlayer}) => mountAbugramMiniPlayer(this.sidebarEl)).catch(() => {});
++    import('@components/abugramMiniPlayer').then(({mountAbugramMiniPlayer}) => {
++      const folders = this.chatListContainer.querySelector('#folders-container') as HTMLElement;
++      if(folders) mountAbugramMiniPlayer(folders);
++    }).catch(() => {});
 +
 +    // * Abugram's own ad card at the top of the chat list (see lib/abugram/ads)
 +    import('@lib/abugram/ads').then(({default: mountAbugramAds}) => mountAbugramAds(this.chatListContainer)).catch(() => {});
@@ -647,32 +650,23 @@ index 0000000..1c15c60
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
 new file mode 100644
-index 0000000..e776a73
+index 0000000..6dc855e
 --- /dev/null
 +++ b/src/lib/abugram/ads.ts
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,89 @@
 +/**
 + * Abugram's own ads: one card at the top of the chat list, labelled as an ad, from the Abugram relay's /ads
 + * (managed on the Abugram admin page). A view is counted once per start, a click through /go/<id>. The card can
-+ * be closed for a few hours. Telegram's own sponsored messages in channels are left as they are.
++ * stays while its campaign runs (by hours, days or views). Telegram's own sponsored messages in channels are left as they are.
 + */
 +type AbugramAd = {id: number, title: string, text: string, image: string, url: string};
 +
-+const HIDE_KEY = 'abugram.adHiddenUntil';
-+const HIDE_MS = 6 * 3600e3;
 +
 +function relayBase(): string {
 +  const relay: string = import.meta.env.VITE_ABUGRAM_RELAY || '';
 +  return relay.replace(/^wss:/i, 'https:').replace(/\/+$/, '');
 +}
 +
-+function hiddenUntil(): number {
-+  try {
-+    return +(localStorage.getItem(HIDE_KEY) || 0);
-+  } catch(err) {
-+    return 0;
-+  }
-+}
 +
 +export default async function mountAbugramAds(container: HTMLElement) {
 +  return mountAbugramAdCard(container, 'list');
@@ -680,7 +674,7 @@ index 0000000..e776a73
 +
 +export async function mountAbugramAdCard(container: HTMLElement, place: 'list' | 'chat') {
 +  const base = relayBase();
-+  if(!base || !container || Date.now() < hiddenUntil()) return;
++  if(!base || !container) return;
 +
 +  let ads: AbugramAd[];
 +  try {
@@ -726,19 +720,6 @@ index 0000000..e776a73
 +  }
 +  card.append(body);
 +
-+  const close = document.createElement('button');
-+  close.type = 'button';
-+  close.className = 'abugram-ad-close';
-+  close.setAttribute('aria-label', 'Yopish');
-+  close.textContent = '×';
-+  close.addEventListener('click', (e) => {
-+    e.stopPropagation();
-+    try {
-+      localStorage.setItem(HIDE_KEY, '' + (Date.now() + HIDE_MS));
-+    } catch(err) {}
-+    card.remove();
-+  });
-+  card.append(close);
 +
 +  const open = () => {
 +    if(!ad.url) return;
@@ -753,17 +734,23 @@ index 0000000..e776a73
 +    if(e.key === 'Enter') open();
 +  });
 +
-+  if(place === 'chat') container.append(card); else container.prepend(card);
++  if(place === 'chat') {
++    container.append(card);
++  } else {
++    // * under the folder tabs, above the chats (Telegram's place for its own sponsored card)
++    const folders = container.querySelector('#folders-container');
++    if(folders) folders.after(card); else container.prepend(card);
++  }
 +  fetch(base + '/ads/seen', {method: 'POST', body: JSON.stringify({ids: [ad.id]}), keepalive: true}).catch(() => {});
 +}
 diff --git a/src/lib/abugram/chatAd.ts b/src/lib/abugram/chatAd.ts
 new file mode 100644
-index 0000000..5130d2a
+index 0000000..9b515f7
 --- /dev/null
 +++ b/src/lib/abugram/chatAd.ts
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,21 @@
 +/**
-+ * Abugram: the ad card at the top of a chat (private chats, groups and bots; never channels), under the chat header.
++ * Abugram: the ad card at the top of a chat (private chats, groups, bots and channels), under the chat header.
 + * It is the same card as at the top of the chat list (lib/abugram/ads), and is counted the same way.
 + */
 +import {mountAbugramAdCard} from '@lib/abugram/ads';
@@ -774,12 +761,6 @@ index 0000000..5130d2a
 +  if(mounted) {
 +    mounted.el.remove();
 +    mounted = undefined;
-+  }
-+  // * channels are left alone: their posts are the content, and an ad above them reads as a post
-+  try {
-+    if(managers?.appPeersManager?.isBroadcast?.(peerId)) return;
-+  } catch(err) {
-+    return;
 +  }
 +  const host = chat.topbar?.container;
 +  if(!host) return;
@@ -1392,10 +1373,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..bd22e6e 100644
+index 6e592cb..6d980f4 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,238 @@
+@@ -1549,3 +1549,237 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1574,10 +1555,9 @@ index 6e592cb..bd22e6e 100644
 +
 +// * Abugram: the music mini player at the top (components/abugramMiniPlayer)
 +.abugram-mini-player {
-+  position: absolute;
++  position: relative;
 +  z-index: 6;
-+  top: 8px;
-+  inset-inline: 10px;
++  margin: 8px 10px 4px;
 +  display: flex;
 +  align-items: center;
 +  gap: 10px;
