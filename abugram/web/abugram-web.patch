@@ -668,16 +668,18 @@ index 0000000..1c15c60
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
 new file mode 100644
-index 0000000..5d5cb9d
+index 0000000..a06578a
 --- /dev/null
 +++ b/src/lib/abugram/ads.ts
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,94 @@
 +/**
 + * Abugram's own ads: one card at the top of the chat list, labelled as an ad, from the Abugram relay's /ads
-+ * (managed on the Abugram admin page). A view is counted once per start, a click through /go/<id>. The card can
-+ * stays while its campaign runs (by hours, days or views). Telegram's own sponsored messages in channels are left as they are.
++ * (managed on the Abugram admin page). Each showing counts as a view, and each account once as a unique viewer; a click
++ * goes through /go/<id>. The card stays while its campaign runs (by hours, days or views).
 + */
 +type AbugramAd = {id: number, title: string, text: string, image: string, url: string};
++
++import rootScope from '@lib/rootScope';
 +
 +
 +function relayBase(): string {
@@ -760,7 +762,9 @@ index 0000000..5d5cb9d
 +    const folders = container.querySelector('#folders-container');
 +    if(folders) folders.after(card); else container.prepend(card);
 +  }
-+  fetch(base + '/ads/seen', {method: 'POST', body: JSON.stringify({ids: [ad.id]}), keepalive: true}).catch(() => {});
++  // * every showing counts as a view; the account is sent (the relay keeps only a hash) so the unique viewers can be counted
++  const uid = rootScope.myId ? rootScope.myId.toUserId() : 0;
++  fetch(base + '/ads/seen', {method: 'POST', body: JSON.stringify({ids: [ad.id], uid}), keepalive: true}).catch(() => {});
 +}
 diff --git a/src/lib/abugram/chatAd.ts b/src/lib/abugram/chatAd.ts
 new file mode 100644
