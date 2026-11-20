@@ -50,6 +50,17 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   </div>
   <h2>Reklamalar</h2>
   <div id="list"></div>
+  <h2>Ruxsat berilganlar</h2>
+  <p class="sub">Shu ro'yxatdagilarda Sozlamalar ▸ Abugram ichida ko'rinmas rejim chiqadi; "Admin" belgisi bo'lsa, ilovada "Admin panel" tugmasi chiqadi. Telegram ID'ni Abugram'da profilda ko'rish mumkin (Sozlamalar ▸ Abugram ▸ ID ko'rsatish).</p>
+  <div class="card">
+    <label for="uid">Telegram ID</label><input id="uid" inputmode="numeric" placeholder="Masalan: 123456789">
+    <label for="uname">Ism (o'zingiz uchun eslatma)</label><input id="uname" maxlength="80" placeholder="Masalan: Akam">
+    <label class="check"><input type="checkbox" id="ughost" checked> Ko'rinmas rejim</label>
+    <label class="check"><input type="checkbox" id="uadmin"> Admin</label>
+    <div class="row" style="margin-top:14px"><button id="usave">Saqlash</button></div>
+    <div class="msg" id="umsg"></div>
+  </div>
+  <div id="users"></div>
   <div class="row" style="margin-top:16px"><button class="ghost" id="logout">Chiqish</button></div>
 </div>
 </main>
@@ -62,7 +73,25 @@ function api(method,path,body){
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load(); }
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers(); }
+function loadUsers(){
+  api('GET','/admin/access').then(function(j){
+    var list=$('users');list.innerHTML='';
+    if(!j.users.length){list.innerHTML='<div class="card ad-text">Hali hech kim yo\'q. O\'zingizni Admin qilib qo\'shing.</div>';return;}
+    j.users.forEach(function(u){
+      var c=document.createElement('div');c.className='card';
+      c.innerHTML='<div class="row" style="justify-content:space-between"><div class="ad-title"></div><div class="row"></div></div><div class="ad-text"></div><div class="row" style="margin-top:10px"><button class="ghost" data-a="edit">Tahrirlash</button><button class="danger" data-a="del">O\'chirish</button></div>';
+      c.querySelector('.ad-title').textContent=u.name||'(ismsiz)';
+      c.querySelector('.ad-text').textContent='ID: '+u.uid;
+      var pills=c.querySelector('.row .row');
+      if(u.ghost){var p1=document.createElement('span');p1.className='pill on';p1.textContent='Ko\'rinmas rejim';pills.appendChild(p1);}
+      if(u.admin){var p2=document.createElement('span');p2.className='pill on';p2.textContent='Admin';pills.appendChild(p2);}
+      c.querySelector('[data-a=edit]').onclick=function(){$('uid').value=u.uid;$('uname').value=u.name;$('ughost').checked=!!u.ghost;$('uadmin').checked=!!u.admin;$('uid').scrollIntoView({behavior:'smooth',block:'center'});};
+      c.querySelector('[data-a=del]').onclick=function(){if(confirm('Ruxsat olib tashlansinmi?'))api('DELETE','/admin/access?uid='+u.uid).then(loadUsers);};
+      list.appendChild(c);
+    });
+  }).catch(function(e){msg($('umsg'),e.message);});
+}
 function load(){
   api('GET','/admin/ads').then(function(j){
     var list=$('list');list.innerHTML='';
@@ -94,6 +123,12 @@ $('save').onclick=function(){
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
 };
 $('reset').onclick=function(){fill(null);};
+$('usave').onclick=function(){
+  var uid=$('uid').value.replace(/\D/g,'');
+  if(!uid){msg($('umsg'),'Telegram ID raqamini yozing');return;}
+  api('POST','/admin/access',{uid:Number(uid),name:$('uname').value.trim(),ghost:$('ughost').checked?1:0,admin:$('uadmin').checked?1:0})
+    .then(function(){msg($('umsg'),'Saqlandi ✅',true);$('uid').value='';$('uname').value='';loadUsers();}).catch(function(e){msg($('umsg'),e.message);});
+};
 $('logout').onclick=function(){try{localStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
 if(pw){api('GET','/admin/ads').then(showPanel).catch(function(){});}
 </script></body></html>

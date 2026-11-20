@@ -34,8 +34,10 @@ b{color:var(--text)}
 //   GET  /ads              the active ads, for the apps
 //   POST /ads/seen         body {&quot;ids&quot;:[1,2]}: counts a view of each
 //   GET  /go/&lt;id&gt;          counts a click and redirects to the ad&#x27;s link
+//   GET  /access?uid=&lt;id&gt;  what this Telegram account may use: {&quot;ghost&quot;: bool, &quot;admin&quot;: bool}
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
-//                          only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare)
+//   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
+//                          both only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare)
 const HTTP_ROUTE = /^\/((?:pluto|venus|aurora|vesta|flora)(?:-[a-z0-9]+)*)\/(apiw(?:_test)?1)$/i;
 const WS_ROUTE = /^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i;
 const CORS = {
@@ -62,6 +64,12 @@ async function db(env) {
       created INTEGER NOT NULL DEFAULT 0,
       views INTEGER NOT NULL DEFAULT 0,
       clicks INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
+      uid INTEGER PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      ghost INTEGER NOT NULL DEFAULT 0,
+      admin INTEGER NOT NULL DEFAULT 0
     )`).run();
     schemaReady = true;
   }
@@ -104,6 +112,35 @@ async function handleAds(request, env, url) {
     if(!row || !/^https?:\/\//i.test(row.url)) return new Response(&#x27;Not found&#x27;, {status: 404, headers: CORS});
     await d.prepare(&#x27;UPDATE ads SET clicks = clicks + 1 WHERE id = ?&#x27;).bind(Number(go[1])).run();
     return Response.redirect(row.url, 302);
+  }
+
+  if(path === &#x27;/access&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const d = await db(env);
+    const uid = Number(url.searchParams.get(&#x27;uid&#x27;));
+    const row = d &amp;&amp; Number.isSafeInteger(uid) &amp;&amp; uid &gt; 0 ? await d.prepare(&#x27;SELECT ghost, admin FROM access WHERE uid = ?&#x27;).bind(uid).first() : null;
+    return json({ghost: !!(row &amp;&amp; row.ghost), admin: !!(row &amp;&amp; row.admin)}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/admin/access&#x27;) {
+    if(!isAdmin(request, env)) return json({error: &#x27;unauthorized&#x27;}, 401);
+    const d = await db(env);
+    if(!d) return json({error: &#x27;no database bound as DB&#x27;}, 500);
+    if(request.method === &#x27;GET&#x27;) {
+      const {results} = await d.prepare(&#x27;SELECT * FROM access ORDER BY name&#x27;).all();
+      return json({users: results});
+    }
+    if(request.method === &#x27;POST&#x27;) {
+      const b = await request.json();
+      const uid = Number(b.uid);
+      if(!Number.isSafeInteger(uid) || uid &lt;= 0) return json({error: &#x27;Telegram ID raqam bo\&#x27;lishi kerak&#x27;}, 400);
+      await d.prepare(&#x27;INSERT INTO access (uid, name, ghost, admin) VALUES (?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin&#x27;)
+        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0).run();
+      return json({ok: true});
+    }
+    if(request.method === &#x27;DELETE&#x27;) {
+      await d.prepare(&#x27;DELETE FROM access WHERE uid = ?&#x27;).bind(Number(url.searchParams.get(&#x27;uid&#x27;))).run();
+      return json({ok: true});
+    }
   }
 
   if(path === &#x27;/admin/ads&#x27;) {
@@ -152,7 +189,7 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;)) {
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27;) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -160,7 +197,7 @@ export default {
         return json({error: String(e &amp;&amp; e.message || e)}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v3).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v4).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
