@@ -1,2 +1,0 @@
-//# allFunctionsCalledOnLoad
-export{Lr as WalletCommentKeyError,Rr as decryptTransferComment,zr as encryptedCommentCoverLength,Br as keepCommentFocus,Vr as showCommentDecryptError,Hr as wrapCommentCover}from"./appDialogsManager-BNRMf9XU.js";

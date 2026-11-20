@@ -36,6 +36,15 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
 </div>
 
 <div id="panel" hidden>
+  <h2>Statistika</h2>
+  <div class="card">
+    <div class="stats" style="margin-top:0;flex-wrap:wrap;gap:18px;font-size:15px">
+      <span>Jami: <b id="sTotal">—</b></span><span>Bugun: <b id="sToday">—</b></span><span>7 kun: <b id="s7">—</b></span><span>30 kun: <b id="s30">—</b></span>
+      <span>Veb: <b id="sWeb">—</b></span><span>Android: <b id="sAndroid">—</b></span>
+    </div>
+    <div class="row" style="margin-top:12px"><a href="stats.html" target="_blank" rel="noopener"><button class="ghost" type="button">Reklama beruvchilar uchun sahifa ↗</button></a></div>
+    <p class="ad-text" style="margin:8px 0 0">Bu havolani reklama beruvchilarga yuborasiz: abdulaziz0196.github.io/tashlanov.ru/abugram/stats.html</p>
+  </div>
   <h2 id="formTitle">Yangi reklama</h2>
   <div class="card">
     <input type="hidden" id="id">
@@ -73,7 +82,14 @@ function api(method,path,body){
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers(); }
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats(); }
+function loadStats(){
+  fetch(RELAY+'/stats',{cache:'no-store'}).then(function(r){return r.json();}).then(function(s){
+    var f=function(n){return (n||0).toLocaleString('ru-RU');};
+    $('sTotal').textContent=f(s.total);$('sToday').textContent=f(s.today);$('s7').textContent=f(s.d7);$('s30').textContent=f(s.d30);
+    $('sWeb').textContent=f((s.platforms||{}).web);$('sAndroid').textContent=f((s.platforms||{}).android);
+  }).catch(function(){});
+}
 function loadUsers(){
   api('GET','/admin/access').then(function(j){
     var list=$('users');list.innerHTML='';
