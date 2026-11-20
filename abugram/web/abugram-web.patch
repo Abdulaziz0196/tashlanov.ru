@@ -1,9 +1,9 @@
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..1b698be
+index 0000000..6780c35
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,100 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
@@ -87,6 +87,7 @@ index 0000000..1b698be
 +      </Section>
 +      <Section name="Abugram.Look">
 +        <Toggle key="hideStories" title="Abugram.HideStories" subtitle="Abugram.HideStories.Sub" />
++        <Toggle key="showSeconds" title="Abugram.ShowSeconds" subtitle="Abugram.ShowSeconds.Sub" />
 +        <Row>
 +          <Row.CheckboxFieldToggle>
 +            <CheckboxFieldTsx toggle checked={appSettings.showPeerIds} onChange={(checked) => setAppSettings('showPeerIds', checked)} />
@@ -167,6 +168,35 @@ index 78c9c84..cdae27a 100644
      message_colors: [0x5CA853],
      wallpaper: {
        _: 'wallPaper',
+diff --git a/src/helpers/date.ts b/src/helpers/date.ts
+index 8c6932f..bcf0050 100644
+--- a/src/helpers/date.ts
++++ b/src/helpers/date.ts
+@@ -130,11 +130,23 @@ export function formatDateAccordingToTodayNew(time: Date) {
+   }).element;
+ }
+ 
+-const formatTimeOptions: Intl.DateTimeFormatOptions = {
++const formatTimeOptionsMinutes: Intl.DateTimeFormatOptions = {
+   hour: '2-digit',
+   minute: '2-digit'
+ };
+ 
++const formatTimeOptionsSeconds: Intl.DateTimeFormatOptions = {
++  ...formatTimeOptionsMinutes,
++  second: '2-digit'
++};
++
++let formatTimeOptions = formatTimeOptionsMinutes;
++
++/** Abugram: times shown down to the second (Settings → Abugram), set from the app's settings */
++export function setTimeWithSeconds(on: boolean) {
++  formatTimeOptions = on ? formatTimeOptionsSeconds : formatTimeOptionsMinutes;
++}
++
+ export function formatFullSentTimeRaw(timestamp: number, options: {
+   capitalize?: boolean
+   noToday?: boolean,
 diff --git a/src/helpers/themeController.ts b/src/helpers/themeController.ts
 index 8fe1cdb..3972893 100644
 --- a/src/helpers/themeController.ts
@@ -181,10 +211,10 @@ index 8fe1cdb..3972893 100644
      'message-background-color': '#ffffff',
      'surface-color': '#ffffff',
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..9d902da 100644
+index 9601966..47d0a5b 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
-@@ -1,4 +1,44 @@
+@@ -1,4 +1,46 @@
  const lang = {
 +  'Abugram.Title': 'Abugram',
 +  'Abugram.Settings.Row': 'Abugram',
@@ -207,6 +237,8 @@ index 9601966..9d902da 100644
 +  'Abugram.Look': 'Ko\'rinish · Внешний вид',
 +  'Abugram.HideStories': 'Story panelini yashirish',
 +  'Abugram.HideStories.Sub': 'Скрыть панель историй',
++  'Abugram.ShowSeconds': 'Vaqtni soniyagacha ko\'rsatish',
++  'Abugram.ShowSeconds.Sub': 'Время с секундами (12:44:07). Новые сообщения сразу, остальные после перезапуска',
 +  'Abugram.ShowIds': 'ID ko\'rsatish',
 +  'Abugram.ShowIds.Sub': 'Показывать ID в профиле',
 +  'Abugram.Calls': 'Qo\'ng\'iroqlar · Звонки',
@@ -231,10 +263,10 @@ index 9601966..9d902da 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
 new file mode 100644
-index 0000000..32aef21
+index 0000000..9256b53
 --- /dev/null
 +++ b/src/lib/abugram/settings.ts
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,66 @@
 +/**
 + * Abugram feature switches, kept in `settings.abugram` of the account state (Settings → Abugram).
 + * Everything is off by default except hiding sponsored messages, as in Abugram for Android.
@@ -247,7 +279,8 @@ index 0000000..32aef21
 +  keepDeleted: boolean,
 +  hideSponsored: boolean,
 +  hideStories: boolean,
-+  confirmCalls: boolean
++  confirmCalls: boolean,
++  showSeconds: boolean
 +};
 +
 +export const ABUGRAM_DEFAULTS: AbugramSettings = {
@@ -258,7 +291,8 @@ index 0000000..32aef21
 +  keepDeleted: false,
 +  hideSponsored: true,
 +  hideStories: false,
-+  confirmCalls: true
++  confirmCalls: true,
++  showSeconds: true
 +};
 +
 +export function getAbugramSettings(settings: {abugram?: Partial<AbugramSettings>} | undefined): AbugramSettings {
@@ -459,7 +493,7 @@ index 7e8a6db..d6e76c7 100644
  
    return chosenServer;
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..9009d2d 100644
+index 02c16ac..db7a489 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -470,7 +504,7 @@ index 02c16ac..9009d2d 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,22 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,23 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
@@ -487,6 +521,7 @@ index 02c16ac..9009d2d 100644
 +    {id: 'AppAbugramTab:Abugram.Messages', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Messages'},
 +    {id: 'AppAbugramTab:Abugram.ShowIds', sectionId: 'AppAbugramTab', kind: 'toggle', titleLangKey: 'Abugram.ShowIds'},
 +    {id: 'AppAbugramTab:Abugram.ShowIds.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.ShowIds.Sub'},
++    {id: 'AppAbugramTab:Abugram.ShowSeconds', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.ShowSeconds'},
 +    {id: 'AppAbugramTab:Abugram.Tabs', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Tabs'},
 +    {id: 'AppAbugramTab:Abugram.Tabs.Create', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create'},
 +    {id: 'AppAbugramTab:Abugram.Tabs.Create.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create.Sub'},
@@ -609,16 +644,18 @@ index 6e592cb..6a0f848 100644
 +  display: none !important;
 +}
 diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
-index 06e248f..e0a2ab3 100644
+index 06e248f..7795f64 100644
 --- a/src/stores/appSettings.ts
 +++ b/src/stores/appSettings.ts
-@@ -1,4 +1,4 @@
+@@ -1,4 +1,6 @@
 -import {createRoot} from 'solid-js';
 +import {createEffect, createRoot} from 'solid-js';
++import {setTimeWithSeconds} from '@helpers/date';
++import {ABUGRAM_DEFAULTS} from '@lib/abugram/settings';
  import {createStore, SetStoreFunction, unwrap} from 'solid-js/store';
  import {StateSettings} from '@config/state';
  import rootScope from '@lib/rootScope';
-@@ -8,6 +8,14 @@ import {MOUNT_CLASS_TO} from '@config/debug';
+@@ -8,6 +10,19 @@ import {MOUNT_CLASS_TO} from '@config/debug';
  
  const [appSettings, _setAppSettings] = createRoot(() => createStore<StateSettings>({} as any));
  
@@ -627,6 +664,11 @@ index 06e248f..e0a2ab3 100644
 +  createEffect(() => {
 +    const hide = !!appSettings.abugram?.hideStories;
 +    typeof(document) !== 'undefined' && document.documentElement.classList.toggle('abugram-hide-stories', hide);
++  });
++
++  // * Abugram: times down to the second, on by default
++  createEffect(() => {
++    setTimeWithSeconds(appSettings.abugram?.showSeconds ?? ABUGRAM_DEFAULTS.showSeconds);
 +  });
 +});
 +
