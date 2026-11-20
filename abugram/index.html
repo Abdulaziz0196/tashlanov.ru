@@ -60,6 +60,7 @@ h2{font-size:clamp(26px,4.5vw,38px);letter-spacing:-.8px;margin-top:6px}
 /* downloads */
 .dl{display:grid;gap:14px;margin-top:26px}
 @media(min-width:720px){.dl{grid-template-columns:repeat(2,1fr);max-width:820px}}
+@media(min-width:1000px){.dl{grid-template-columns:repeat(3,1fr);max-width:1120px}}
 .card{position:relative;background:linear-gradient(180deg,#ffffff14,#ffffff07);border:1px solid var(--line);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:12px}
 .card.rec{border-color:#00d5ff88;box-shadow:0 0 0 1px #00d5ff55,0 24px 60px #00d5ff1c}
 .rec-badge{position:absolute;top:-11px;left:20px;background:linear-gradient(135deg,var(--a1),var(--a2));font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px}
@@ -165,6 +166,15 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
       <a class="btn" id="btn-android" aria-disabled="true" href="https://github.com/Abdulaziz0196/abugram-android/releases/latest">⬇️ Abugram.apk</a>
       <div class="meta" id="meta-android"></div>
     </div>
+    <div class="card" id="card-ios">
+      <div class="ic">🍏</div>
+      <h3>iPhone (IPA)</h3>
+      <p data-lang="uz">Sinov versiyasi. GBox, Feather, Esign yoki Sideloadly orqali o'rnating. Avval eski Abugram'ni o'chiring.</p>
+      <p data-lang="ru">Тестовая версия. Установите через GBox, Feather, Esign или Sideloadly. Сначала удалите старый Abugram.</p>
+      <div class="status wait" id="st-ios">⏳ <span data-lang="uz">Tekshirilmoqda…</span><span data-lang="ru">Проверяем…</span></div>
+      <a class="btn" id="btn-ios" aria-disabled="true" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest">⬇️ Abugram.ipa</a>
+      <div class="meta" id="meta-ios"></div>
+    </div>
     <div class="card" id="card-web">
       <div class="ic">🌐</div>
       <h3 data-lang="uz">Veb · iPhone uchun</h3><h3 data-lang="ru">Веб · для iPhone</h3>
@@ -261,7 +271,7 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 
   // highlight the card for this device
   var ua=navigator.userAgent||'';
-  var device=/android/i.test(ua)?'android':(/iphone|ipad|ipod/i.test(ua)?'web':null);
+  var device=/android/i.test(ua)?'android':(/iphone|ipad|ipod/i.test(ua)?'ios':null);
   if(device){
     var card=document.getElementById('card-'+device);
     if(card){
@@ -270,30 +280,34 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
       badge.innerHTML='<span data-lang="uz">Sizning qurilmangiz uchun</span><span data-lang="ru">Для вашего устройства</span>';
       card.prepend(badge);
     }
-    showTab(device);
+    showTab(device==='ios'?'web':device);
   }
 
-  // latest Android release
-  function setStatus(cls,uz,ru){
-    var st=document.getElementById('st-android');
-    st.className='status '+cls;
-    st.innerHTML=uz.icon+' <span data-lang="uz">'+uz.text+'</span><span data-lang="ru">'+ru+'</span>';
+  // latest releases: the download button turns on once the file exists
+  function release(key,repo,ext,warnUz,warnRu){
+    function setStatus(cls,icon,uz,ru){
+      var st=document.getElementById('st-'+key);
+      st.className='status '+cls;
+      st.innerHTML=icon+' <span data-lang="uz">'+uz+'</span><span data-lang="ru">'+ru+'</span>';
+    }
+    fetch('https://api.github.com/repos/Abdulaziz0196/'+repo+'/releases/latest',{headers:{'Accept':'application/vnd.github+json'}})
+      .then(function(r){if(!r.ok){throw new Error(r.status);}return r.json();})
+      .then(function(rel){
+        var asset=(rel.assets||[]).filter(function(a){return ext.test(a.name);})[0];
+        if(!asset){throw new Error('no file');}
+        var btn=document.getElementById('btn-'+key);
+        btn.href=asset.browser_download_url;btn.removeAttribute('aria-disabled');
+        var mb=(asset.size/1048576).toFixed(0);
+        var d=new Date(rel.published_at);
+        document.getElementById('meta-'+key).textContent=rel.name+' · '+mb+' MB · '+d.toLocaleDateString();
+        if(warnUz){setStatus('warn','🧪',warnUz,warnRu);}else{setStatus('ok','✅','Tayyor','Готово');}
+      })
+      .catch(function(){
+        setStatus('wait','⏳','Tez orada — yig\'ilmoqda','Скоро — собирается');
+      });
   }
-  fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest',{headers:{'Accept':'application/vnd.github+json'}})
-    .then(function(r){if(!r.ok){throw new Error(r.status);}return r.json();})
-    .then(function(rel){
-      var asset=(rel.assets||[]).filter(function(a){return /\.apk$/i.test(a.name);})[0];
-      if(!asset){throw new Error('no apk');}
-      var btn=document.getElementById('btn-android');
-      btn.href=asset.browser_download_url;btn.removeAttribute('aria-disabled');
-      var mb=(asset.size/1048576).toFixed(0);
-      var d=new Date(rel.published_at);
-      document.getElementById('meta-android').textContent=rel.name+' · '+mb+' MB · '+d.toLocaleDateString();
-      setStatus('ok',{icon:'✅',text:'Tayyor'},'Готово');
-    })
-    .catch(function(){
-      setStatus('wait',{icon:'⏳',text:'Tez orada — yig\'ilmoqda'},'Скоро — собирается');
-    });
+  release('android','abugram-android',/\.apk$/i);
+  release('ios','Telegram-iOS',/\.ipa$/i,'Sinov versiyasi','Тестовая версия');
 })();
 </script>
 </body>
