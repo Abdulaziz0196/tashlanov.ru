@@ -1,0 +1,62 @@
+diff --git a/src/config/app.ts b/src/config/app.ts
+index 73c35ac..c162e86 100644
+--- a/src/config/app.ts
++++ b/src/config/app.ts
+@@ -35,7 +35,7 @@ const App = {
+ 
+ // * "Telegram WebK 2.2 (681)" - how the app names itself, in the main menu and under Settings
+ export function getAppVersionText() {
+-  return `Telegram Web${App.suffix} ${App.version} (${App.build})`;
++  return `Abugram Web ${App.version} (${App.build})`;
+ }
+ 
+ if(App.isMainDomain) { // use Webogram credentials then
+diff --git a/src/lib/mtproto/dcConfigurator.ts b/src/lib/mtproto/dcConfigurator.ts
+index 7e8a6db..d6e76c7 100644
+--- a/src/lib/mtproto/dcConfigurator.ts
++++ b/src/lib/mtproto/dcConfigurator.ts
+@@ -49,6 +49,15 @@ export function assertValidDcId(dcId: DcId): DcId {
+   return +dcId as DcId;
+ }
+ 
++function getAbugramRelay(): string {
++  let relay: string = import.meta.env.VITE_ABUGRAM_RELAY || '';
++  try {
++    relay = (typeof(localStorage) !== 'undefined' && localStorage.getItem('abugram.relay')) || relay;
++  } catch(err) {}
++  relay = relay.trim().replace(/\/+$/, '');
++  return /^wss:\/\/[a-z0-9.-]+(\/[a-z0-9._-]+)*$/i.test(relay) ? relay : '';
++}
++
+ export function constructTelegramWebSocketUrl(_dcId: DcId, connectionType: ConnectionType, premium?: boolean) {
+   if(!import.meta.env.VITE_MTPROTO_HAS_WS) {
+     return;
+@@ -57,6 +66,13 @@ export function constructTelegramWebSocketUrl(_dcId: DcId, connectionType: Conne
+   const dcId = assertValidDcId(_dcId);
+   const suffix = getTelegramConnectionSuffix(connectionType);
+   const path = connectionType !== 'client' ? 'apiws' + TEST_SUFFIX + (premium ? PREMIUM_SUFFIX : '') : ('apiws' + TEST_SUFFIX);
++  // Abugram: an optional WebSocket relay (VITE_ABUGRAM_RELAY, or localStorage 'abugram.relay' to test one)
++  // for networks that block *.web.telegram.org. The relay forwards /<host label>/<path> to
++  // wss://<host label>.web.telegram.org/<path>; MTProto stays end-to-end encrypted to Telegram.
++  const relay = getAbugramRelay();
++  if(relay) {
++    return `${relay}/${App.suffix.toLowerCase()}ws${dcId}${suffix}/${path}`;
++  }
+   const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
+ 
+   return chosenServer;
+diff --git a/vite.config.ts b/vite.config.ts
+index 497c30e..c960049 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -69,8 +69,8 @@ if(isDEV) {
+ 
+ const handlebarsPlugin = handlebars({
+   context: {
+-    title: 'Telegram Web',
+-    description: 'Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.',
++    title: 'Abugram',
++    description: 'Abugram: a Telegram client that works where Telegram is blocked.',
+     url: 'https://web.telegram.org/k/',
+     origin: 'https://web.telegram.org/'
+   }
