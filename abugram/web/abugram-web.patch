@@ -1,3 +1,89 @@
+diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
+new file mode 100644
+index 0000000..55472e8
+--- /dev/null
++++ b/src/components/sidebarLeft/tabs/abugram.tsx
+@@ -0,0 +1,50 @@
++import CheckboxFieldTsx from '@components/checkboxFieldTsx';
++import Row from '@components/rowTsx';
++import Section from '@components/section';
++import {ABUGRAM_DEFAULTS, AbugramSettings} from '@lib/abugram/settings';
++import {i18n, LangPackKey} from '@lib/langPack';
++import {useAppSettings} from '@stores/appSettings';
++
++/** Settings → Abugram: the same switches as in Abugram for Android. */
++const AbugramTab = () => {
++  const [appSettings, setAppSettings] = useAppSettings();
++
++  const get = (key: keyof AbugramSettings) => appSettings.abugram?.[key] ?? ABUGRAM_DEFAULTS[key];
++  const set = (key: keyof AbugramSettings, value: boolean) => {
++    if(!appSettings.abugram) {
++      setAppSettings('abugram', {...ABUGRAM_DEFAULTS, [key]: value});
++    } else {
++      setAppSettings('abugram', key, value);
++    }
++  };
++
++  const Toggle = (props: {key: keyof AbugramSettings, title: LangPackKey, subtitle: LangPackKey}) => (
++    <Row>
++      <Row.CheckboxFieldToggle>
++        <CheckboxFieldTsx toggle checked={get(props.key)} onChange={(checked) => set(props.key, checked)} />
++      </Row.CheckboxFieldToggle>
++      <Row.Title>{i18n(props.title)}</Row.Title>
++      <Row.Subtitle>{i18n(props.subtitle)}</Row.Subtitle>
++    </Row>
++  );
++
++  return (
++    <>
++      <Section name="Abugram.Ghost" caption="Abugram.Ghost.Info">
++        <Toggle key="ghostRead" title="Abugram.GhostRead" subtitle="Abugram.GhostRead.Sub" />
++        <Toggle key="ghostTyping" title="Abugram.GhostTyping" subtitle="Abugram.GhostTyping.Sub" />
++        <Toggle key="ghostOnline" title="Abugram.GhostOnline" subtitle="Abugram.GhostOnline.Sub" />
++        <Toggle key="ghostStories" title="Abugram.GhostStories" subtitle="Abugram.GhostStories.Sub" />
++      </Section>
++      <Section name="Abugram.Messages" caption="Abugram.Messages.Info">
++        <Toggle key="keepDeleted" title="Abugram.KeepDeleted" subtitle="Abugram.KeepDeleted.Sub" />
++        <Toggle key="hideSponsored" title="Abugram.HideSponsored" subtitle="Abugram.HideSponsored.Sub" />
++      </Section>
++      <Section name="Abugram.Look">
++        <Toggle key="hideStories" title="Abugram.HideStories" subtitle="Abugram.HideStories.Sub" />
++      </Section>
++    </>
++  );
++};
++
++export default AbugramTab;
+diff --git a/src/components/sidebarLeft/tabs/settings.tsx b/src/components/sidebarLeft/tabs/settings.tsx
+index f0c17b7..0de7181 100644
+--- a/src/components/sidebarLeft/tabs/settings.tsx
++++ b/src/components/sidebarLeft/tabs/settings.tsx
+@@ -251,6 +251,7 @@ const Settings = () => {
+     makeSubTabConfig('bell_filled', 'AccountSettings.Notifications', hotReloadGuard.tabs.AppNotificationsTab, tab),
+     makeSubTabConfig('data_filled', 'DataSettings', hotReloadGuard.tabs.AppDataAndStorageTab, tab),
+     makeSubTabConfig('key_filled', 'AccountSettings.PrivacyAndSecurity', hotReloadGuard.tabs.AppPrivacyAndSecurityTab, tab),
++    makeSubTabConfig('eye1_filled', 'Abugram.Settings.Row', hotReloadGuard.tabs.AppAbugramTab, tab),
+     makeSubTabConfig('general_filled', 'Telegram.GeneralSettingsViewController', hotReloadGuard.tabs.AppGeneralSettingsTab, tab),
+     makeSubTabConfig('limit_folders_filled', 'AccountSettings.Filters', hotReloadGuard.tabs.AppChatFoldersTab, tab),
+     makeSubTabConfig('reactions_filled', 'StickersName', hotReloadGuard.tabs.AppStickersAndEmojiTab, tab),
+diff --git a/src/components/solidJsTabs/tabs.ts b/src/components/solidJsTabs/tabs.ts
+index b7d2615..6811adb 100644
+--- a/src/components/solidJsTabs/tabs.ts
++++ b/src/components/solidJsTabs/tabs.ts
+@@ -465,6 +465,13 @@ export const AppNewCallTab =
+ (AppNewCallTab as any).noSame = true;
+ 
+ 
++export const AppAbugramTab =
++  scaffoldSolidJSTab({
++    title: 'Abugram.Title',
++    getComponentModule: () => import('../sidebarLeft/tabs/abugram')
++  });
++
++
+ export const AppPowerSavingTab =
+   scaffoldSolidJSTab({
+     title: 'LiteMode.Title',
 diff --git a/src/config/app.ts b/src/config/app.ts
 index 73c35ac..c162e86 100644
 --- a/src/config/app.ts
@@ -11,6 +97,208 @@ index 73c35ac..c162e86 100644
  }
  
  if(App.isMainDomain) { // use Webogram credentials then
+diff --git a/src/config/state.ts b/src/config/state.ts
+index 78c9c84..992e7dc 100644
+--- a/src/config/state.ts
++++ b/src/config/state.ts
+@@ -57,6 +57,7 @@ export type AutoDownloadPeerTypeSettings = {
+ };
+ 
+ export type StateSettings = {
++  abugram?: Partial<import('@lib/abugram/settings').AbugramSettings>,
+   messagesTextSize: number,
+   distanceUnit: 'kilometers' | 'miles',
+   // Only written once the reader flips a story's weather widget; until then the unit follows the
+diff --git a/src/lang.ts b/src/lang.ts
+index 9601966..3529e5b 100644
+--- a/src/lang.ts
++++ b/src/lang.ts
+@@ -1,4 +1,25 @@
+ const lang = {
++  'Abugram.Title': 'Abugram',
++  'Abugram.Settings.Row': 'Abugram',
++  'Abugram.Ghost': 'Ko\'rinmas rejim · Режим невидимки',
++  'Abugram.Ghost.Info': 'Bu sozlamalar Telegram qoidalariga zid bo\'lishi mumkin: ehtiyot bo\'lib ishlating. · Используйте осторожно.',
++  'Abugram.GhostRead': '"O\'qildi" belgisini yubormaslik',
++  'Abugram.GhostRead.Sub': 'Не отправлять «прочитано»',
++  'Abugram.GhostTyping': '"Yozmoqda…" ko\'rsatmaslik',
++  'Abugram.GhostTyping.Sub': 'Не показывать «печатает…»',
++  'Abugram.GhostOnline': 'Onlayn ko\'rinmaslik',
++  'Abugram.GhostOnline.Sub': 'Не быть в сети',
++  'Abugram.GhostStories': 'Story\'larni yashirin ko\'rish',
++  'Abugram.GhostStories.Sub': 'Смотреть истории скрытно',
++  'Abugram.Messages': 'Xabarlar · Сообщения',
++  'Abugram.Messages.Info': 'O\'chirilgan xabarlar ilova ochiq paytda kelgan o\'chirishlar uchun, sahifa qayta yuklanguncha saqlanadi. · Удалённые сохраняются, пока страница открыта.',
++  'Abugram.KeepDeleted': 'O\'chirilgan xabarlarni saqlab qolish',
++  'Abugram.KeepDeleted.Sub': 'Сохранять удалённые сообщения',
++  'Abugram.HideSponsored': 'Homiy (reklama) xabarlarini yashirish',
++  'Abugram.HideSponsored.Sub': 'Скрывать рекламу в каналах',
++  'Abugram.Look': 'Ko\'rinish · Внешний вид',
++  'Abugram.HideStories': 'Story panelini yashirish',
++  'Abugram.HideStories.Sub': 'Скрыть панель историй',
+   'Animations': 'Animations',
+   'AttachAlbum': 'Album',
+   'Appearance.Color.Hex': 'HEX',
+diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
+new file mode 100644
+index 0000000..a654070
+--- /dev/null
++++ b/src/lib/abugram/settings.ts
+@@ -0,0 +1,62 @@
++/**
++ * Abugram feature switches, kept in `settings.abugram` of the account state (Settings → Abugram).
++ * Everything is off by default except hiding sponsored messages, as in Abugram for Android.
++ */
++export type AbugramSettings = {
++  ghostRead: boolean,
++  ghostTyping: boolean,
++  ghostOnline: boolean,
++  ghostStories: boolean,
++  keepDeleted: boolean,
++  hideSponsored: boolean,
++  hideStories: boolean
++};
++
++export const ABUGRAM_DEFAULTS: AbugramSettings = {
++  ghostRead: false,
++  ghostTyping: false,
++  ghostOnline: false,
++  ghostStories: false,
++  keepDeleted: false,
++  hideSponsored: true,
++  hideStories: false
++};
++
++export function getAbugramSettings(settings: {abugram?: Partial<AbugramSettings>} | undefined): AbugramSettings {
++  return {...ABUGRAM_DEFAULTS, ...(settings?.abugram || {})};
++}
++
++export type AbugramFilterResult = {block: false} | {block: true, result: any};
++
++/**
++ * Decides, before a request is sent, whether a privacy switch holds it back on this device. A held-back request
++ * resolves with the answer the server would give when nothing changed, so the callers carry on as usual (the chat
++ * still turns read here; only the other side is not told). `account.updateStatus` is sent, but always as offline.
++ */
++export function abugramFilterRequest(method: string, params: any, s: AbugramSettings, currentPts: number): AbugramFilterResult {
++  if(s.ghostRead) {
++    switch(method) {
++      case 'messages.readHistory':
++      case 'messages.readMessageContents':
++        return {block: true, result: {_: 'messages.affectedMessages', pts: currentPts, pts_count: 0}};
++      case 'channels.readHistory':
++      case 'channels.readMessageContents':
++      case 'messages.readDiscussion':
++        return {block: true, result: true};
++    }
++  }
++  if(s.ghostTyping && method === 'messages.setTyping') {
++    return {block: true, result: true};
++  }
++  if(s.ghostOnline && method === 'account.updateStatus' && params) {
++    params.offline = true;
++  }
++  if(s.ghostStories) {
++    if(method === 'stories.readStories') return {block: true, result: []};
++    if(method === 'stories.incrementStoryViews') return {block: true, result: true};
++  }
++  if(s.hideSponsored && method === 'messages.getSponsoredMessages') {
++    return {block: true, result: {_: 'messages.sponsoredMessagesEmpty'}};
++  }
++  return {block: false};
++}
+diff --git a/src/lib/appManagers/apiManager.ts b/src/lib/appManagers/apiManager.ts
+index 9f14737..0a32613 100644
+--- a/src/lib/appManagers/apiManager.ts
++++ b/src/lib/appManagers/apiManager.ts
+@@ -46,6 +46,7 @@ import TempAuthKeys, {StoredTempAuthKey} from '@lib/mtproto/tempAuthKeys';
+  */
+ import globalRootScope from '@lib/rootScope';
+ import RepayRequestHandler from '@appManagers/utils/repayRequestHandler';
++import {abugramFilterRequest, getAbugramSettings} from '@lib/abugram/settings';
+ 
+ const PREMIUM_FILE_NETWORKERS_COUNT = 6;
+ const REGULAR_FILE_NETWORKERS_COUNT = 3;
+@@ -698,6 +699,18 @@ export class ApiManager extends ApiManagerMethods {
+       this.lol = true;
+     } */
+ 
++    const abugram = abugramFilterRequest(
++      method,
++      params,
++      getAbugramSettings(this.appStateManager?.getStateNow()?.settings),
++      this.apiUpdatesManager?.updatesState?.pts
++    );
++    if(abugram.block) {
++      const held = deferredPromise<MethodDeclMap[T]['res']>();
++      held.resolve(abugram.result);
++      return held;
++    }
++
+     const deferred = deferredPromise<MethodDeclMap[T]['res']>();
+ 
+     let {afterMessageId, prepareTempMessageId} = options;
+diff --git a/src/lib/appManagers/apiUpdatesManager.ts b/src/lib/appManagers/apiUpdatesManager.ts
+index 8a0e8af..02d7de8 100644
+--- a/src/lib/appManagers/apiUpdatesManager.ts
++++ b/src/lib/appManagers/apiUpdatesManager.ts
+@@ -193,6 +193,8 @@ class ApiUpdatesManager {
+   }
+ 
+   public processLocalUpdate(update: Update) {
++    // * Abugram: deletions made on this device always apply, also while "keep deleted messages" is on
++    (update as any).abugramLocal = true;
+     this.processUpdateMessage({
+       _: 'updateShort',
+       update
+diff --git a/src/lib/appManagers/appMessagesManager.ts b/src/lib/appManagers/appMessagesManager.ts
+index af7e961..7f2e9ad 100644
+--- a/src/lib/appManagers/appMessagesManager.ts
++++ b/src/lib/appManagers/appMessagesManager.ts
+@@ -6,6 +6,7 @@
+  */
+ 
+ import type {ApiFileManager} from '@appManagers/apiFileManager';
++import {getAbugramSettings} from '@lib/abugram/settings';
+ import type {MediaSize} from '@helpers/mediaSize';
+ import type {Progress} from '@lib/appDownloadManager';
+ import type {VIDEO_MIME_TYPE} from '@environment/videoMimeTypesSupport';
+@@ -12515,6 +12516,7 @@ export class AppMessagesManager extends AppManager {
+       pts: undefined,
+       pts_count: undefined
+     };
++    (deleteUpdate as any).abugramLocal = true;
+     const alreadyReconciledMids = this.onUpdateDeleteMessages(
+       deleteUpdate,
+       {dispatchHistoryDelete: false, markAsDeleted: false, clearSearchCounters: false}
+@@ -12579,6 +12581,11 @@ export class AppMessagesManager extends AppManager {
+       clearSearchCounters?: boolean
+     } = {}
+   ) => {
++    // * Abugram: "keep deleted messages" leaves what others delete on this device, until the chat is loaded again
++    if(!(update as any).abugramLocal && getAbugramSettings(this.appStateManager.getStateNow()?.settings).keepDeleted) {
++      return new Set<number>();
++    }
++
+     const channelId = (update as Update.updateDeleteChannelMessages).channel_id;
+     let mids = (update as any as Update.updateDeleteChannelMessages).messages.map((id) => this.appMessagesIdsManager.generateMessageId(id, channelId));
+     const peerId: PeerId = channelId ? channelId.toPeerId(true) : (update as LocalUpdateDeleteMessages).peerId ?? this.findPeerIdByMids(mids);
+diff --git a/src/lib/appManagers/appStateManager.ts b/src/lib/appManagers/appStateManager.ts
+index 4764ac5..a052986 100644
+--- a/src/lib/appManagers/appStateManager.ts
++++ b/src/lib/appManagers/appStateManager.ts
+@@ -38,6 +38,11 @@ export default class AppStateManager {
+     return Promise.resolve(this.state);
+   }
+ 
++  /** The loaded state as it is now, for checks that cannot wait (Abugram's request filter). */
++  public getStateNow() {
++    return this.state;
++  }
++
+   public setByKey(key: string, value: any) {
+     setDeepProperty(this.state, key, value);
+ 
 diff --git a/src/lib/mtproto/dcConfigurator.ts b/src/lib/mtproto/dcConfigurator.ts
 index 7e8a6db..d6e76c7 100644
 --- a/src/lib/mtproto/dcConfigurator.ts
@@ -45,6 +333,73 @@ index 7e8a6db..d6e76c7 100644
    const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
  
    return chosenServer;
+diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
+index 02c16ac..8f5208e 100644
+--- a/src/lib/settingsSearch/generated.ts
++++ b/src/lib/settingsSearch/generated.ts
+@@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
+     {id: 'AppNotificationsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.NotificationSettingsViewController', icon: 'bell_filled', aliasLangKeys: ['AccountSettings.Notifications']},
+     {id: 'AppDataAndStorageTab', parentId: 'AppSettingsTab', titleLangKey: 'DataSettings', icon: 'data_filled'},
+     {id: 'AppPrivacyAndSecurityTab', parentId: 'AppSettingsTab', titleLangKey: 'PrivacySettings', icon: 'key_filled', aliasLangKeys: ['AccountSettings.PrivacyAndSecurity']},
++    {id: 'AppAbugramTab', parentId: 'AppSettingsTab', titleLangKey: 'Abugram.Title', icon: 'eye1_filled', aliasLangKeys: ['Abugram.Settings.Row']},
+     {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
+     {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
+     {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
+@@ -68,6 +69,16 @@ const generated: GeneratedSettingsSearchData = {
+     {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
+   ],
+   entries: [
++    {id: 'AppAbugramTab:Abugram.Ghost', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Ghost'},
++    {id: 'AppAbugramTab:Abugram.GhostOnline', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostOnline'},
++    {id: 'AppAbugramTab:Abugram.GhostRead', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostRead'},
++    {id: 'AppAbugramTab:Abugram.GhostStories', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostStories'},
++    {id: 'AppAbugramTab:Abugram.GhostTyping', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostTyping'},
++    {id: 'AppAbugramTab:Abugram.HideSponsored', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.HideSponsored'},
++    {id: 'AppAbugramTab:Abugram.HideStories', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.HideStories'},
++    {id: 'AppAbugramTab:Abugram.KeepDeleted', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.KeepDeleted'},
++    {id: 'AppAbugramTab:Abugram.Look', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Look'},
++    {id: 'AppAbugramTab:Abugram.Messages', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Messages'},
+     {id: 'AppActiveSessionsTab:AuthSessions.DeviceName', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.DeviceName'},
+     {id: 'AppActiveSessionsTab:AuthSessions.IncompleteAttempts', sectionId: 'AppActiveSessionsTab', kind: 'subsection', titleLangKey: 'AuthSessions.IncompleteAttempts'},
+     {id: 'AppActiveSessionsTab:AuthSessions.RenameDevice', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.RenameDevice'},
+diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
+index 6e592cb..6a0f848 100644
+--- a/src/scss/partials/_leftSidebar.scss
++++ b/src/scss/partials/_leftSidebar.scss
+@@ -1549,3 +1549,8 @@
+ #chats-archived-container {
+   background-color: var(--surface-color);
+ }
++
++// * Abugram: Settings → Abugram → "hide the stories panel"
++.abugram-hide-stories .stories-list {
++  display: none !important;
++}
+diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
+index 06e248f..e0a2ab3 100644
+--- a/src/stores/appSettings.ts
++++ b/src/stores/appSettings.ts
+@@ -1,4 +1,4 @@
+-import {createRoot} from 'solid-js';
++import {createEffect, createRoot} from 'solid-js';
+ import {createStore, SetStoreFunction, unwrap} from 'solid-js/store';
+ import {StateSettings} from '@config/state';
+ import rootScope from '@lib/rootScope';
+@@ -8,6 +8,14 @@ import {MOUNT_CLASS_TO} from '@config/debug';
+ 
+ const [appSettings, _setAppSettings] = createRoot(() => createStore<StateSettings>({} as any));
+ 
++// * Abugram: "hide the stories panel" (Settings → Abugram) — see .abugram-hide-stories in the styles
++createRoot(() => {
++  createEffect(() => {
++    const hide = !!appSettings.abugram?.hideStories;
++    typeof(document) !== 'undefined' && document.documentElement.classList.toggle('abugram-hide-stories', hide);
++  });
++});
++
+ let silent = false;
+ const setAppSettings: SetStoreFunction<StateSettings, Promise<void>> = (...args: any[]) => {
+   const keys = args.slice(0, -1);
 diff --git a/vite.config.ts b/vite.config.ts
 index 497c30e..c960049 100644
 --- a/vite.config.ts
