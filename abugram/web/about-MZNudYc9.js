@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{t as e}from"./privacyTab-DFZtcmoq.js";import{t}from"./privacySection-hA9yI40u.js";var n=`Privacy.BioCaption`,r=e(`privacy-about`,e=>{new t({tab:e,title:`Privacy.Bio`,inputKey:`inputPrivacyKeyAbout`,captions:[n,n,n],exceptionTexts:[`PrivacySettingsController.NeverAllow`,`PrivacySettingsController.AlwaysAllow`],appendTo:e.scrollable,managers:e.managers})});export{r as default};
+//# sourceMappingURL=about-MZNudYc9.js.map
