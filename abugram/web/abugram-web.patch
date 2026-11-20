@@ -1,3 +1,81 @@
+diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
+index 6c7c795..af88eff 100644
+--- a/src/components/sidebarLeft/index.ts
++++ b/src/components/sidebarLeft/index.ts
+@@ -479,6 +479,7 @@ export class AppSidebarLeft extends SidebarSlider {
+     });
+ 
+     this.initSidebarResize();
++    this.initAbugramTabbar();
+     appDialogsManager.onSomeDrawerToggle = () => {
+       this.onSomethingOpenInsideChange();
+     };
+@@ -580,6 +581,65 @@ export class AppSidebarLeft extends SidebarSlider {
+   }
+ 
+   private isAnimatingCollapse = false;
++
++  // * Abugram: the bottom bar of Telegram for iPhone (Contacts · Calls · Chats · Settings), on phones only (CSS). It
++  // * shows over the chat list and over the three tabs it opens, and steps aside for everything opened from them
++  private abugramTabbarTabs = new WeakMap<SliderSuperTab, string>();
++  private initAbugramTabbar() {
++    const bar = document.createElement('nav');
++    bar.className = 'abugram-tabbar';
++    const buttons = new Map<string, HTMLElement>();
++    const items: {key: string, icon: Icon, text: LangPackKey, open?: () => SliderSuperTab, hidden?: boolean}[] = [
++      {key: 'contacts', icon: 'user', text: 'Contacts', open: () => this.createTab(AppContactsTab)},
++      {key: 'calls', icon: 'phone', text: 'Calls', open: () => this.createTab(AppCallsTab), hidden: !(IS_CALL_SUPPORTED || IS_CONFERENCE_CALL_SUPPORTED)},
++      {key: 'chats', icon: 'message', text: 'FilterChats'},
++      {key: 'settings', icon: 'settings', text: 'Settings', open: () => this.createTab(AppSettingsTab)}
++    ];
++
++    const update = () => {
++      const ids = this.historyTabIds;
++      const top = ids[ids.length - 1];
++      let key: string;
++      if(!ids.length) {
++        key = this.isSearchActive || appDialogsManager.forumTab ? undefined : 'chats';
++      } else if(ids.length === 1 && top instanceof SliderSuperTab) {
++        key = this.abugramTabbarTabs.get(top);
++      }
++      bar.classList.toggle('is-hidden', !key);
++      this.sidebarEl.classList.toggle('has-abugram-tabbar', !!key);
++      buttons.forEach((button, k) => button.classList.toggle('is-active', k === key));
++    };
++
++    for(const item of items) {
++      if(item.hidden) continue;
++      const button = document.createElement('button');
++      button.type = 'button';
++      button.className = 'abugram-tabbar-item';
++      button.append(Icon(item.icon, 'abugram-tabbar-icon'), i18n(item.text));
++      attachClickEvent(button, async() => {
++        if(button.classList.contains('is-active')) return;
++        if(this.closeEverythingInside()) await pause(200);
++        if(item.open) {
++          const tab = item.open();
++          this.abugramTabbarTabs.set(tab, item.key);
++          tab.open();
++        }
++        update();
++      });
++      buttons.set(item.key, button);
++      bar.append(button);
++    }
++
++    const original = this.onSomethingOpenInsideChange;
++    this.onSomethingOpenInsideChange = (force = false) => {
++      original(force);
++      update();
++    };
++
++    this.sidebarEl.append(bar);
++    update();
++  }
++
+   // * settles as the bar's resize under way is over (`isAnimatingCollapse` back to false)
+   private collapseAnimation: Promise<void>;
+   private onSomethingOpenInsideChange = (force = false) => {
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
 index 0000000..57d5fb0
@@ -949,10 +1027,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..6a0f848 100644
+index 6e592cb..cae22ee 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,8 @@
+@@ -1549,3 +1549,90 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -960,6 +1038,88 @@ index 6e592cb..6a0f848 100644
 +// * Abugram: Settings → Abugram → "hide the stories panel"
 +.abugram-hide-stories .stories-list {
 +  display: none !important;
++}
++
++// * Abugram: the bottom bar of Telegram for iPhone (Contacts · Calls · Chats · Settings), phones only
++.abugram-tabbar {
++  display: none;
++}
++
++@include respond-to(handhelds) {
++  .abugram-tabbar {
++    --tabbar-height: 62px;
++    display: flex;
++    position: absolute;
++    z-index: 5;
++    inset-inline: 14px;
++    bottom: calc(10px + env(safe-area-inset-bottom));
++    height: var(--tabbar-height);
++    padding: 5px;
++    gap: 2px;
++    border-radius: calc(var(--tabbar-height) / 2);
++    background: color-mix(in srgb, var(--surface-color) 78%, transparent);
++    -webkit-backdrop-filter: blur(22px) saturate(180%);
++    backdrop-filter: blur(22px) saturate(180%);
++    box-shadow: 0 6px 24px rgba(0, 0, 0, .22), inset 0 0 0 .5px color-mix(in srgb, var(--primary-text-color) 12%, transparent);
++    transition: opacity .2s ease, transform .2s ease;
++
++    &.is-hidden {
++      opacity: 0;
++      transform: translateY(calc(100% + 24px));
++      pointer-events: none;
++    }
++  }
++
++  .abugram-tabbar-item {
++    flex: 1 1 0;
++    min-width: 0;
++    display: flex;
++    flex-direction: column;
++    align-items: center;
++    justify-content: center;
++    gap: 1px;
++    border: 0;
++    border-radius: calc((var(--tabbar-height) - 10px) / 2);
++    background: transparent;
++    color: var(--primary-text-color);
++    font: inherit;
++    font-size: .6875rem;
++    font-weight: 500;
++    line-height: 1.1;
++    cursor: pointer;
++    -webkit-tap-highlight-color: transparent;
++    transition: background-color .2s ease, color .2s ease;
++
++    &.is-active {
++      background: color-mix(in srgb, var(--primary-text-color) 9%, transparent);
++      color: var(--primary-color);
++    }
++
++    > span:last-child {
++      max-width: 100%;
++      overflow: hidden;
++      text-overflow: ellipsis;
++      white-space: nowrap;
++    }
++  }
++
++  .abugram-tabbar-icon {
++    font-size: 1.625rem;
++    line-height: 1;
++  }
++
++  // * room for the bar under the chat list and the tabs it opens, and the new-message button above it
++  #column-left.has-abugram-tabbar {
++    #chatlist-container .scrollable,
++    .sidebar-slider-item .sidebar-content > .scrollable,
++    .sidebar-slider-item > .scrollable {
++      padding-bottom: calc(var(--abugram-tabbar-room, 84px) + env(safe-area-inset-bottom));
++    }
++
++    #new-menu {
++      bottom: calc(84px + env(safe-area-inset-bottom)) !important;
++    }
++  }
 +}
 diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
 index 06e248f..7795f64 100644
