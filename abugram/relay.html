@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abugram Relay</title>
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--text:#f2f2f7;--muted:#a3a3b5;--accent:#6A5CFF;--accent2:#00D5FF}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--text:#14141c;--muted:#5d5d6e}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 8px}p{color:var(--muted);margin:0 0 16px}
+ol{padding-left:20px}li{margin:8px 0}
+pre{background:var(--card);border-radius:12px;padding:14px;overflow:auto;font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+button{width:100%;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:600;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2));margin:8px 0 16px}
+b{color:var(--text)}
+</style></head><body><main>
+<h1>Abugram Relay</h1>
+<p>Abugram Web VPN'siz ishlashi uchun Cloudflare'da bepul "Worker" yaratish yo'riqnomasi.</p>
+<ol>
+<li><b>dash.cloudflare.com</b> da bepul ro'yxatdan o'ting va emailni tasdiqlang.</li>
+<li>Chap menyudan <b>Compute (Workers)</b> → <b>Workers &amp; Pages</b> → <b>Create</b> ni bosing.</li>
+<li><b>Start with Hello World!</b> ni tanlang, nomiga <b>abugram</b> deb yozing va <b>Deploy</b> ni bosing.</li>
+<li><b>Edit code</b> ni bosing. U yerdagi hamma kodni o'chirib, pastdagi <b>Kodni nusxalash</b> tugmasi bilan olingan kodni qo'ying.</li>
+<li>Yuqoridagi <b>Deploy</b> ni bosing.</li>
+<li>Worker manzili <b>abugram.….workers.dev</b> ko'rinishida bo'ladi. Shu manzilni nusxalab yuboring.</li>
+</ol>
+<button id="copy">📋 Kodni nusxalash</button>
+<pre id="code">// Abugram relay: lets Abugram Web reach Telegram where *.web.telegram.org is blocked.
+// It only forwards WebSocket connections to Telegram&#x27;s own web endpoints: wss://&lt;relay&gt;/&lt;host&gt;/&lt;path&gt;
+// goes to wss://&lt;host&gt;.web.telegram.org/&lt;path&gt;. The MTProto traffic inside stays encrypted end to end
+// between the app and Telegram; the relay cannot read it. Anything else gets a plain page.
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const match = url.pathname.match(/^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i);
+    if(!match) {
+      return new Response(&#x27;Abugram relay is running.&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    }
+    if((request.headers.get(&#x27;Upgrade&#x27;) || &#x27;&#x27;).toLowerCase() !== &#x27;websocket&#x27;) {
+      return new Response(&#x27;Expected a WebSocket&#x27;, {status: 426});
+    }
+    const target = &#x27;https://&#x27; + match[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + match[2] + url.search;
+    return fetch(new Request(target, request));
+  }
+};
+</pre>
+</main>
+<script>
+document.getElementById('copy').addEventListener('click',function(){
+  var t=document.getElementById('code').textContent,b=this;
+  function done(){b.textContent='✅ Nusxalandi';setTimeout(function(){b.textContent='📋 Kodni nusxalash';},2500);}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fallback);}else{fallback();}
+  function fallback(){var r=document.createRange();r.selectNodeContents(document.getElementById('code'));var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');done();}catch(e){}}
+});
+</script>
+</body></html>
