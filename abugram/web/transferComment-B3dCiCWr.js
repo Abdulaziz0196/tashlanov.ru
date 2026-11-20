@@ -1,0 +1,2 @@
+//# allFunctionsCalledOnLoad
+export{Yn as WalletCommentKeyError,Xn as decryptTransferComment,Zn as encryptedCommentCoverLength,Qn as keepCommentFocus,$n as showCommentDecryptError,er as wrapCommentCover}from"./appDialogsManager-CL2n3S8J.js";

@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{mountAbugramAdCard as e}from"./ads-CtHHHseK.js";var t;function n(n,r,i){t&&(t.el.remove(),t=void 0);let a=n.bubbles?.chatInner;if(!a)return;let o=document.createElement(`div`);o.className=`abugram-chat-ad-host`,a.prepend(o),t={chatId:0,el:o},e(o,`chat`);for(let e of[600,1800])setTimeout(()=>{!o.isConnected&&a.isConnected&&a.prepend(o)},e)}export{n as mountChatAd};
+//# sourceMappingURL=chatAd-Vu8aPBqQ.js.map
