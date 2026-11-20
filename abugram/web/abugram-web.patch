@@ -668,10 +668,10 @@ index 0000000..1c15c60
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
 new file mode 100644
-index 0000000..6dc855e
+index 0000000..5d5cb9d
 --- /dev/null
 +++ b/src/lib/abugram/ads.ts
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,90 @@
 +/**
 + * Abugram's own ads: one card at the top of the chat list, labelled as an ad, from the Abugram relay's /ads
 + * (managed on the Abugram admin page). A view is counted once per start, a click through /go/<id>. The card can
@@ -743,7 +743,8 @@ index 0000000..6dc855e
 +    if(!ad.url) return;
 +    // * the relay counts the click on /go/<id>; the link itself opens here, a t.me one inside the app
 +    fetch(base + '/go/' + ad.id, {mode: 'no-cors', redirect: 'manual', keepalive: true}).catch(() => {});
-+    import('@lib/appImManager').then(({default: appImManager}) => appImManager.openUrl(ad.url)).catch(() => {
++    // * openUrl opens only the links it knows how to route (t.me and friends); an outside site needs the new-window flag
++    import('@lib/appImManager').then(({default: appImManager}) => appImManager.openUrl(ad.url, true)).catch(() => {
 +      window.open(ad.url, '_blank', 'noopener');
 +    });
 +  };
