@@ -1,5 +1,5 @@
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
-index 6c7c795..af88eff 100644
+index 6c7c795..7442b67 100644
 --- a/src/components/sidebarLeft/index.ts
 +++ b/src/components/sidebarLeft/index.ts
 @@ -479,6 +479,7 @@ export class AppSidebarLeft extends SidebarSlider {
@@ -10,7 +10,7 @@ index 6c7c795..af88eff 100644
      appDialogsManager.onSomeDrawerToggle = () => {
        this.onSomethingOpenInsideChange();
      };
-@@ -580,6 +581,65 @@ export class AppSidebarLeft extends SidebarSlider {
+@@ -580,6 +581,68 @@ export class AppSidebarLeft extends SidebarSlider {
    }
  
    private isAnimatingCollapse = false;
@@ -71,6 +71,9 @@ index 6c7c795..af88eff 100644
 +
 +    this.sidebarEl.append(bar);
 +    update();
++
++    // * Abugram's own ad card at the top of the chat list (see lib/abugram/ads)
++    import('@lib/abugram/ads').then(({default: mountAbugramAds}) => mountAbugramAds(this.chatListContainer)).catch(() => {});
 +  }
 +
    // * settles as the bar's resize under way is over (`isAnimatingCollapse` back to false)
@@ -78,10 +81,10 @@ index 6c7c795..af88eff 100644
    private onSomethingOpenInsideChange = (force = false) => {
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..02b4ed1
+index 0000000..02cf7fe
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,123 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
@@ -176,7 +179,6 @@ index 0000000..02b4ed1
 +      </Section>
 +      <Section name="Abugram.Messages" caption="Abugram.Messages.Info">
 +        <Toggle key="keepDeleted" title="Abugram.KeepDeleted" subtitle="Abugram.KeepDeleted.Sub" />
-+        <Toggle key="hideSponsored" title="Abugram.HideSponsored" subtitle="Abugram.HideSponsored.Sub" />
 +      </Section>
 +      <Section name="Abugram.Look">
 +        <Toggle key="hideStories" title="Abugram.HideStories" subtitle="Abugram.HideStories.Sub" />
@@ -475,6 +477,113 @@ index 9601966..552bb53 100644
    'Animations': 'Animations',
    'AttachAlbum': 'Album',
    'Appearance.Color.Hex': 'HEX',
+diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
+new file mode 100644
+index 0000000..e183da6
+--- /dev/null
++++ b/src/lib/abugram/ads.ts
+@@ -0,0 +1,101 @@
++/**
++ * Abugram's own ads: one card at the top of the chat list, labelled as an ad, from the Abugram relay's /ads
++ * (managed on the Abugram admin page). A view is counted once per start, a click through /go/<id>. The card can
++ * be closed for a few hours. Telegram's own sponsored messages in channels are left as they are.
++ */
++type AbugramAd = {id: number, title: string, text: string, image: string, url: string};
++
++const HIDE_KEY = 'abugram.adHiddenUntil';
++const HIDE_MS = 6 * 3600e3;
++
++function relayBase(): string {
++  const relay: string = import.meta.env.VITE_ABUGRAM_RELAY || '';
++  return relay.replace(/^wss:/i, 'https:').replace(/\/+$/, '');
++}
++
++function hiddenUntil(): number {
++  try {
++    return +(localStorage.getItem(HIDE_KEY) || 0);
++  } catch(err) {
++    return 0;
++  }
++}
++
++export default async function mountAbugramAds(container: HTMLElement) {
++  const base = relayBase();
++  if(!base || !container || Date.now() < hiddenUntil()) return;
++
++  let ads: AbugramAd[];
++  try {
++    const response = await fetch(base + '/ads', {cache: 'no-store'});
++    ads = (await response.json()).ads || [];
++  } catch(err) {
++    return;
++  }
++  if(!ads.length) return;
++
++  const ad = ads[Math.floor(Math.random() * ads.length)];
++  const card = document.createElement('div');
++  card.className = 'abugram-ad';
++  card.setAttribute('role', 'link');
++  card.tabIndex = 0;
++
++  if(/^https:\/\//i.test(ad.image)) {
++    const img = document.createElement('img');
++    img.className = 'abugram-ad-image';
++    img.src = ad.image;
++    img.alt = '';
++    img.loading = 'lazy';
++    card.append(img);
++  }
++
++  const body = document.createElement('div');
++  body.className = 'abugram-ad-body';
++  const label = document.createElement('div');
++  label.className = 'abugram-ad-label';
++  label.textContent = 'Reklama · Реклама';
++  body.append(label);
++  if(ad.title) {
++    const title = document.createElement('div');
++    title.className = 'abugram-ad-title';
++    title.textContent = ad.title;
++    body.append(title);
++  }
++  if(ad.text) {
++    const text = document.createElement('div');
++    text.className = 'abugram-ad-text';
++    text.textContent = ad.text;
++    body.append(text);
++  }
++  card.append(body);
++
++  const close = document.createElement('button');
++  close.type = 'button';
++  close.className = 'abugram-ad-close';
++  close.setAttribute('aria-label', 'Yopish');
++  close.textContent = '×';
++  close.addEventListener('click', (e) => {
++    e.stopPropagation();
++    try {
++      localStorage.setItem(HIDE_KEY, '' + (Date.now() + HIDE_MS));
++    } catch(err) {}
++    card.remove();
++  });
++  card.append(close);
++
++  const open = () => {
++    if(!ad.url) return;
++    // * the relay counts the click on /go/<id>; the link itself opens here, a t.me one inside the app
++    fetch(base + '/go/' + ad.id, {mode: 'no-cors', redirect: 'manual', keepalive: true}).catch(() => {});
++    import('@lib/appImManager').then(({default: appImManager}) => appImManager.openUrl(ad.url)).catch(() => {
++      window.open(ad.url, '_blank', 'noopener');
++    });
++  };
++  card.addEventListener('click', open);
++  card.addEventListener('keydown', (e) => {
++    if(e.key === 'Enter') open();
++  });
++
++  container.prepend(card);
++  fetch(base + '/ads/seen', {method: 'POST', body: JSON.stringify({ids: [ad.id]}), keepalive: true}).catch(() => {});
++}
 diff --git a/src/lib/abugram/netStats.ts b/src/lib/abugram/netStats.ts
 new file mode 100644
 index 0000000..f5e7bb5
@@ -552,10 +661,10 @@ index 0000000..f5e7bb5
 +}
 diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
 new file mode 100644
-index 0000000..9256b53
+index 0000000..748c097
 --- /dev/null
 +++ b/src/lib/abugram/settings.ts
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,64 @@
 +/**
 + * Abugram feature switches, kept in `settings.abugram` of the account state (Settings → Abugram).
 + * Everything is off by default except hiding sponsored messages, as in Abugram for Android.
@@ -578,7 +687,7 @@ index 0000000..9256b53
 +  ghostOnline: false,
 +  ghostStories: false,
 +  keepDeleted: false,
-+  hideSponsored: true,
++  hideSponsored: false,
 +  hideStories: false,
 +  confirmCalls: true,
 +  showSeconds: true
@@ -617,9 +726,7 @@ index 0000000..9256b53
 +    if(method === 'stories.readStories') return {block: true, result: []};
 +    if(method === 'stories.incrementStoryViews') return {block: true, result: true};
 +  }
-+  if(s.hideSponsored && method === 'messages.getSponsoredMessages') {
-+    return {block: true, result: {_: 'messages.sponsoredMessagesEmpty'}};
-+  }
++  // * Telegram's sponsored messages in channels are not held back: Telegram's API terms (3.3) ask clients to show them
 +  return {block: false};
 +}
 diff --git a/src/lib/appImManager.ts b/src/lib/appImManager.ts
@@ -933,7 +1040,7 @@ index fa10ae2..24265b1 100644
    };
  }
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..62770c8 100644
+index 02c16ac..d4212c5 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -944,7 +1051,7 @@ index 02c16ac..62770c8 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,25 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,24 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
@@ -956,7 +1063,6 @@ index 02c16ac..62770c8 100644
 +    {id: 'AppAbugramTab:Abugram.GhostRead', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostRead'},
 +    {id: 'AppAbugramTab:Abugram.GhostStories', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostStories'},
 +    {id: 'AppAbugramTab:Abugram.GhostTyping', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.GhostTyping'},
-+    {id: 'AppAbugramTab:Abugram.HideSponsored', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.HideSponsored'},
 +    {id: 'AppAbugramTab:Abugram.HideStories', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.HideStories'},
 +    {id: 'AppAbugramTab:Abugram.KeepDeleted', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.KeepDeleted'},
 +    {id: 'AppAbugramTab:Abugram.Look', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Look'},
@@ -1073,10 +1179,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..cae22ee 100644
+index 6e592cb..f4df0bd 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,90 @@
+@@ -1549,3 +1549,157 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1166,6 +1272,73 @@ index 6e592cb..cae22ee 100644
 +      bottom: calc(84px + env(safe-area-inset-bottom)) !important;
 +    }
 +  }
++}
++
++// * Abugram's own ad card at the top of the chat list (lib/abugram/ads)
++.abugram-ad {
++  position: relative;
++  flex: 0 0 auto;
++  display: flex;
++  align-items: center;
++  gap: .75rem;
++  margin: .5rem .75rem;
++  padding: .625rem 2.25rem .625rem .75rem;
++  border-radius: 14px;
++  background: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color));
++  color: var(--primary-text-color);
++  cursor: pointer;
++  -webkit-tap-highlight-color: transparent;
++}
++
++.abugram-ad-image {
++  flex: 0 0 auto;
++  width: 48px;
++  height: 48px;
++  border-radius: 10px;
++  object-fit: cover;
++}
++
++.abugram-ad-body {
++  min-width: 0;
++}
++
++.abugram-ad-label {
++  font-size: .6875rem;
++  font-weight: 600;
++  color: var(--primary-color);
++  text-transform: uppercase;
++  letter-spacing: .02em;
++}
++
++.abugram-ad-title {
++  font-weight: 600;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.abugram-ad-text {
++  font-size: .875rem;
++  color: var(--secondary-text-color);
++  display: -webkit-box;
++  -webkit-line-clamp: 2;
++  -webkit-box-orient: vertical;
++  overflow: hidden;
++}
++
++.abugram-ad-close {
++  position: absolute;
++  top: .25rem;
++  inset-inline-end: .375rem;
++  width: 1.75rem;
++  height: 1.75rem;
++  border: 0;
++  border-radius: 50%;
++  background: transparent;
++  color: var(--secondary-text-color);
++  font-size: 1.25rem;
++  line-height: 1;
++  cursor: pointer;
 +}
 diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
 index 06e248f..7795f64 100644
