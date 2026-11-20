@@ -1,5 +1,81 @@
+diff --git a/src/components/abugramMiniPlayer.ts b/src/components/abugramMiniPlayer.ts
+new file mode 100644
+index 0000000..a2dc111
+--- /dev/null
++++ b/src/components/abugramMiniPlayer.ts
+@@ -0,0 +1,70 @@
++/**
++ * Abugram: the music that is playing stays on screen as a bar at the top of the app, like Telegram's mini player.
++ * It shows the track, plays or pauses it, and closes it. Tapping the title opens the chat the track came from.
++ * Voice messages and round videos do not show it; music and audio files do.
++ */
++import appMediaPlaybackController from '@components/appMediaPlaybackController';
++import appImManager from '@lib/appImManager';
++import rootScope from '@lib/rootScope';
++
++const ICON_PLAY = '▶';
++const ICON_PAUSE = '❚❚';
++
++function trackTitle(doc: any): string {
++  const title = doc?.attributes?.find?.((a: any) => a._ === 'documentAttributeAudio');
++  const name = title?.title || doc?.file_name || '';
++  const artist = title?.performer || '';
++  return artist ? artist + ' — ' + name : name;
++}
++
++export function mountAbugramMiniPlayer(container: HTMLElement) {
++  const bar = document.createElement('div');
++  bar.className = 'abugram-mini-player';
++  bar.hidden = true;
++  bar.innerHTML = '<button type="button" class="abugram-mini-toggle" aria-label="Play"></button>' +
++    '<button type="button" class="abugram-mini-title"></button>' +
++    '<button type="button" class="abugram-mini-close" aria-label="Close">×</button>';
++  const toggle = bar.querySelector('.abugram-mini-toggle') as HTMLButtonElement;
++  const titleBtn = bar.querySelector('.abugram-mini-title') as HTMLButtonElement;
++  const close = bar.querySelector('.abugram-mini-close') as HTMLButtonElement;
++  container.prepend(bar);
++
++  let current: {message: any, doc: any, peerId: any} | undefined;
++  const show = (details: any) => {
++    const doc = details?.doc;
++    const isVoice = doc && (doc.type === 'voice' || doc.type === 'round');
++    if(!details || !doc || isVoice) {
++      bar.hidden = true;
++      current = undefined;
++      return;
++    }
++    current = {message: details.message, doc, peerId: details.message?.peerId};
++    titleBtn.textContent = trackTitle(doc) || 'Musiqa';
++    toggle.textContent = ICON_PAUSE;
++    bar.hidden = false;
++  };
++
++  appMediaPlaybackController.addEventListener('play', (details: any) => show(details));
++  appMediaPlaybackController.addEventListener('pause', () => {
++    toggle.textContent = ICON_PLAY;
++  });
++  appMediaPlaybackController.addEventListener('stop', () => {
++    bar.hidden = true;
++    current = undefined;
++  });
++
++  toggle.addEventListener('click', (e) => {
++    e.stopPropagation();
++    appMediaPlaybackController.toggle();
++  });
++  close.addEventListener('click', (e) => {
++    e.stopPropagation();
++    appMediaPlaybackController.stop();
++  });
++  titleBtn.addEventListener('click', () => {
++    if(!current?.peerId) return;
++    appImManager.setInnerPeer({peerId: current.peerId, lastMsgId: current.message?.mid});
++  });
++
++  return bar;
++}
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
-index 6c7c795..f158fc7 100644
+index 6c7c795..5cf631f 100644
 --- a/src/components/sidebarLeft/index.ts
 +++ b/src/components/sidebarLeft/index.ts
 @@ -479,6 +479,7 @@ export class AppSidebarLeft extends SidebarSlider {
@@ -10,7 +86,7 @@ index 6c7c795..f158fc7 100644
      appDialogsManager.onSomeDrawerToggle = () => {
        this.onSomethingOpenInsideChange();
      };
-@@ -580,6 +581,70 @@ export class AppSidebarLeft extends SidebarSlider {
+@@ -580,6 +581,73 @@ export class AppSidebarLeft extends SidebarSlider {
    }
  
    private isAnimatingCollapse = false;
@@ -71,6 +147,9 @@ index 6c7c795..f158fc7 100644
 +
 +    this.sidebarEl.append(bar);
 +    update();
++
++    // * Abugram: the music playing stays on screen as a bar at the top (like Telegram's mini player)
++    import('@components/abugramMiniPlayer').then(({mountAbugramMiniPlayer}) => mountAbugramMiniPlayer(this.sidebarEl)).catch(() => {});
 +
 +    // * Abugram's own ad card at the top of the chat list (see lib/abugram/ads)
 +    import('@lib/abugram/ads').then(({default: mountAbugramAds}) => mountAbugramAds(this.chatListContainer)).catch(() => {});
@@ -1261,10 +1340,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..f4df0bd 100644
+index 6e592cb..29f3227 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,157 @@
+@@ -1549,3 +1549,218 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1421,6 +1500,67 @@ index 6e592cb..f4df0bd 100644
 +  font-size: 1.25rem;
 +  line-height: 1;
 +  cursor: pointer;
++}
++
++// * Abugram: the music mini player at the top (components/abugramMiniPlayer)
++.abugram-mini-player {
++  position: absolute;
++  z-index: 6;
++  top: 8px;
++  inset-inline: 10px;
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  height: 52px;
++  padding: 0 8px 0 6px;
++  border-radius: 14px;
++  background: color-mix(in srgb, var(--surface-color) 86%, transparent);
++  -webkit-backdrop-filter: blur(20px) saturate(170%);
++  backdrop-filter: blur(20px) saturate(170%);
++  box-shadow: 0 6px 22px rgba(0, 0, 0, .22), inset 0 0 0 .5px color-mix(in srgb, var(--primary-text-color) 12%, transparent);
++
++  &[hidden] {
++    display: none;
++  }
++
++  button {
++    border: 0;
++    background: transparent;
++    color: var(--primary-text-color);
++    font: inherit;
++    cursor: pointer;
++    -webkit-tap-highlight-color: transparent;
++  }
++
++  .abugram-mini-toggle {
++    flex: 0 0 auto;
++    width: 38px;
++    height: 38px;
++    border-radius: 50%;
++    background: var(--primary-color);
++    color: #fff;
++    font-size: 14px;
++  }
++
++  .abugram-mini-title {
++    flex: 1 1 auto;
++    min-width: 0;
++    overflow: hidden;
++    text-align: start;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++    font-weight: 600;
++    font-size: 15px;
++  }
++
++  .abugram-mini-close {
++    flex: 0 0 auto;
++    width: 30px;
++    height: 30px;
++    font-size: 22px;
++    line-height: 1;
++    color: var(--secondary-text-color);
++  }
 +}
 diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
 index 06e248f..7795f64 100644
