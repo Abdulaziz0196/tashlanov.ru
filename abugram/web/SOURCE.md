@@ -8,3 +8,4 @@ Rebuild: clone tweb at that commit, `git apply abugram-web.patch`, `pnpm install
 `VITE_API_ID=… VITE_API_HASH=… pnpm exec vite build`, then copy `public/` and `dist/` here.
 
 The published build is made with `VITE_ABUGRAM_RELAY=wss://winter-cake-2d11.tashlanow.workers.dev`: it connects through the Cloudflare Worker in [`../relay-worker.js`](../relay-worker.js), which forwards only to `*.web.telegram.org`.
+The build also sets `src/langPackLocalVersion.ts` (git-ignored) to 5, so phones reload the interface strings.

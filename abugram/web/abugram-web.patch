@@ -172,6 +172,24 @@ index 73c35ac..7760db0 100644
  }
  
  if(App.isMainDomain) { // use Webogram credentials then
+diff --git a/src/config/modes.ts b/src/config/modes.ts
+index d787f78..3744f43 100644
+--- a/src/config/modes.ts
++++ b/src/config/modes.ts
+@@ -172,6 +172,13 @@ if(Modes.multipleTransports) {
+   Modes.http = true;
+ }
+ 
++// * Abugram: through the relay, plain HTTPS requests only - networks in Russia let them through where they starve a
++// * WebSocket of any answer (see Settings → Abugram → Diagnostika)
++if(import.meta.env.VITE_MTPROTO_HAS_HTTP && import.meta.env.VITE_ABUGRAM_RELAY && !isFlagInURL('abugramWs')) {
++  Modes.http = true;
++  Modes.multipleTransports = false;
++}
++
+ if(Modes.http) {
+   Modes.transport = 'https';
+ }
 diff --git a/src/config/state.ts b/src/config/state.ts
 index 78c9c84..cdae27a 100644
 --- a/src/config/state.ts
@@ -561,7 +579,7 @@ index 4764ac5..a052986 100644
      setDeepProperty(this.state, key, value);
  
 diff --git a/src/lib/mtproto/dcConfigurator.ts b/src/lib/mtproto/dcConfigurator.ts
-index 7e8a6db..d6e76c7 100644
+index 7e8a6db..6c0cf60 100644
 --- a/src/lib/mtproto/dcConfigurator.ts
 +++ b/src/lib/mtproto/dcConfigurator.ts
 @@ -49,6 +49,15 @@ export function assertValidDcId(dcId: DcId): DcId {
@@ -594,6 +612,18 @@ index 7e8a6db..d6e76c7 100644
    const chosenServer = `wss://${App.suffix.toLowerCase()}ws${dcId}${suffix}.web.telegram.org/${path}`;
  
    return chosenServer;
+@@ -111,7 +127,10 @@ export class DcConfigurator {
+       const suffix = getTelegramConnectionSuffix(connectionType);
+       const subdomain = this.sslSubdomains[dcId - 1] + suffix;
+       const path = Modes.test ? 'apiw_test1' : 'apiw1';
+-      chosenServer = 'https://' + subdomain + '.web.telegram.org/' + path;
++      const relay = getAbugramRelay();
++      chosenServer = relay ?
++        relay.replace(/^wss:/i, 'https:') + '/' + subdomain + '/' + path :
++        'https://' + subdomain + '.web.telegram.org/' + path;
+     } else {
+       for(const dcOption of this.dcOptions) {
+         if(dcOption.id === dcId) {
 diff --git a/src/lib/mtproto/transports/websocket.ts b/src/lib/mtproto/transports/websocket.ts
 index fa10ae2..24265b1 100644
 --- a/src/lib/mtproto/transports/websocket.ts
