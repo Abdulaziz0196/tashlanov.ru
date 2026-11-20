@@ -1,0 +1,2 @@
+//# allFunctionsCalledOnLoad
+export{d as AppBackgroundTab,p as WALLPAPER_FILE_TYPES,m as buildFromWallPapers,h as createWallPaperGrid,f as default,g as getWallPaperKey}from"./appDialogsManager-CXb879Uz.js";
