@@ -1381,10 +1381,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..6d980f4 100644
+index 6e592cb..1731fd1 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,237 @@
+@@ -1549,3 +1549,241 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1478,7 +1478,11 @@ index 6e592cb..6d980f4 100644
 +
 +// * Abugram's own ad card (lib/abugram/ads): iPhone-style sponsored card, at the top of the chat list and of each chat
 +.abugram-chat-ad-host {
-+  padding: 0 0 4px;
++  position: sticky;
++  top: 0;
++  z-index: 3;
++  padding: 6px 0 4px;
++  background: linear-gradient(to bottom, var(--surface-color) 70%, transparent);
 +}
 +
 +.abugram-ad {
