@@ -1392,10 +1392,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..29f3227 100644
+index 6e592cb..bd22e6e 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,218 @@
+@@ -1549,3 +1549,238 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1487,7 +1487,11 @@ index 6e592cb..29f3227 100644
 +  }
 +}
 +
-+// * Abugram's own ad card at the top of the chat list (lib/abugram/ads)
++// * Abugram's own ad card (lib/abugram/ads): iPhone-style sponsored card, at the top of the chat list and of each chat
++.abugram-chat-ad-host {
++  padding: 0 0 4px;
++}
++
 +.abugram-ad {
 +  position: relative;
 +  flex: 0 0 auto;
@@ -1495,19 +1499,28 @@ index 6e592cb..29f3227 100644
 +  align-items: center;
 +  gap: .75rem;
 +  margin: .5rem .75rem;
-+  padding: .625rem 2.25rem .625rem .75rem;
-+  border-radius: 14px;
-+  background: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color));
++  padding: .75rem 2.5rem .75rem .75rem;
++  border-radius: 16px;
++  background: color-mix(in srgb, var(--surface-color) 92%, transparent);
++  -webkit-backdrop-filter: blur(20px) saturate(170%);
++  backdrop-filter: blur(20px) saturate(170%);
++  box-shadow: 0 1px 0 color-mix(in srgb, var(--primary-text-color) 8%, transparent), 0 4px 16px rgba(0, 0, 0, .12);
 +  color: var(--primary-text-color);
 +  cursor: pointer;
 +  -webkit-tap-highlight-color: transparent;
++  transition: transform .15s ease, opacity .15s ease;
++
++  &:active {
++    transform: scale(.985);
++    opacity: .9;
++  }
 +}
 +
 +.abugram-ad-image {
 +  flex: 0 0 auto;
-+  width: 48px;
-+  height: 48px;
-+  border-radius: 10px;
++  width: 46px;
++  height: 46px;
++  border-radius: 12px;
 +  object-fit: cover;
 +}
 +
@@ -1516,22 +1529,26 @@ index 6e592cb..29f3227 100644
 +}
 +
 +.abugram-ad-label {
++  display: inline-block;
++  margin-bottom: 2px;
++  padding: 1px 6px;
++  border-radius: 6px;
++  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
 +  font-size: .6875rem;
 +  font-weight: 600;
 +  color: var(--primary-color);
-+  text-transform: uppercase;
-+  letter-spacing: .02em;
 +}
 +
 +.abugram-ad-title {
 +  font-weight: 600;
++  font-size: .9375rem;
 +  overflow: hidden;
 +  text-overflow: ellipsis;
 +  white-space: nowrap;
 +}
 +
 +.abugram-ad-text {
-+  font-size: .875rem;
++  font-size: .8125rem;
 +  color: var(--secondary-text-color);
 +  display: -webkit-box;
 +  -webkit-line-clamp: 2;
@@ -1541,15 +1558,16 @@ index 6e592cb..29f3227 100644
 +
 +.abugram-ad-close {
 +  position: absolute;
-+  top: .25rem;
-+  inset-inline-end: .375rem;
-+  width: 1.75rem;
-+  height: 1.75rem;
++  top: 50%;
++  inset-inline-end: .5rem;
++  transform: translateY(-50%);
++  width: 26px;
++  height: 26px;
 +  border: 0;
 +  border-radius: 50%;
-+  background: transparent;
++  background: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
 +  color: var(--secondary-text-color);
-+  font-size: 1.25rem;
++  font-size: 1rem;
 +  line-height: 1;
 +  cursor: pointer;
 +}
@@ -1563,10 +1581,10 @@ index 6e592cb..29f3227 100644
 +  display: flex;
 +  align-items: center;
 +  gap: 10px;
-+  height: 52px;
-+  padding: 0 8px 0 6px;
-+  border-radius: 14px;
-+  background: color-mix(in srgb, var(--surface-color) 86%, transparent);
++  height: 56px;
++  padding: 0 8px 0 7px;
++  border-radius: 20px;
++  background: color-mix(in srgb, var(--surface-color) 80%, transparent);
 +  -webkit-backdrop-filter: blur(20px) saturate(170%);
 +  backdrop-filter: blur(20px) saturate(170%);
 +  box-shadow: 0 6px 22px rgba(0, 0, 0, .22), inset 0 0 0 .5px color-mix(in srgb, var(--primary-text-color) 12%, transparent);
@@ -1586,12 +1604,13 @@ index 6e592cb..29f3227 100644
 +
 +  .abugram-mini-toggle {
 +    flex: 0 0 auto;
-+    width: 38px;
-+    height: 38px;
++    width: 42px;
++    height: 42px;
 +    border-radius: 50%;
-+    background: var(--primary-color);
++    background: linear-gradient(160deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 70%, #00d5ff));
 +    color: #fff;
-+    font-size: 14px;
++    font-size: 15px;
++    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 45%, transparent);
 +  }
 +
 +  .abugram-mini-title {
@@ -1603,6 +1622,7 @@ index 6e592cb..29f3227 100644
 +    white-space: nowrap;
 +    font-weight: 600;
 +    font-size: 15px;
++    letter-spacing: -.01em;
 +  }
 +
 +  .abugram-mini-close {
