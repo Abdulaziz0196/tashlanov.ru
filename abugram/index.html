@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Abugram — iPhone uchun</title>
+<meta name="description" content="Abugram: VPN'siz ishlaydigan, ko'p funksiyali Telegram mijozi. iPhone uchun IPA.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+body{min-height:100vh;background:#050713;color:#fff;overflow-x:hidden}
+a{color:inherit}
+.wrap{overflow:hidden;min-height:100vh;max-width:460px;margin:auto;padding:20px 16px 40px;position:relative;background:radial-gradient(circle at 70% 0,#273bff55,transparent 35%),radial-gradient(circle at 0 55%,#00e5ff33,transparent 35%)}
+.orb{position:absolute;border-radius:50%;filter:blur(30px);opacity:.7;animation:float 5s infinite alternate;pointer-events:none}
+.o1{width:170px;height:170px;background:#645cff;right:-45px;top:80px}
+.o2{width:140px;height:140px;background:#00e5ff;left:-60px;top:620px}
+@keyframes float{to{transform:translateY(25px) scale(1.08)}}
+header{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2}
+.logo{display:flex;gap:12px;align-items:center}
+.cube{width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#725cff,#00e5ff);display:grid;place-items:center;font-weight:900;font-size:22px;box-shadow:0 18px 45px #00d5ff44;transform:rotate(-8deg)}
+h1{font-size:19px}.mini{font-size:12px;color:#9ca8c7}
+.lang{display:flex;gap:6px}
+.lang button{padding:8px 12px;border:1px solid #ffffff22;background:#ffffff10;border-radius:999px;color:#fff;font-weight:800;font-size:12px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:linear-gradient(135deg,#6a5cff,#00d5ff);border-color:transparent}
+.card{position:relative;z-index:2;margin-top:28px;border:1px solid #ffffff22;background:linear-gradient(180deg,#ffffff18,#ffffff08);backdrop-filter:blur(20px);border-radius:30px;padding:24px;box-shadow:0 35px 80px #0008}
+.tag{display:inline-flex;padding:9px 12px;border-radius:999px;background:#00e5ff18;color:#85efff;border:1px solid #00e5ff35;font-size:12px;font-weight:800;margin-bottom:16px}
+.card h2{font-size:40px;line-height:1;letter-spacing:-1.5px}
+.card h2 span{background:linear-gradient(90deg,#fff,#00e5ff,#8b7cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card p{margin-top:14px;color:#b7c0dc;line-height:1.55;font-size:15px}
+.btn{display:block;text-align:center;text-decoration:none;margin-top:20px;border-radius:18px;padding:16px;color:#fff;font-weight:900;font-size:16px;background:linear-gradient(135deg,#6a5cff,#00d5ff);box-shadow:0 18px 35px #00d5ff30}
+.btn.dark{background:#ffffff12;border:1px solid #ffffff22;box-shadow:none;margin-top:10px;font-size:14px}
+.note{font-size:12px;color:#8e98b8;margin-top:10px;text-align:center}
+h3.sec{position:relative;z-index:2;margin:30px 4px 12px;font-size:20px}
+.features{display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative;z-index:2}
+.f{background:#ffffff0d;border:1px solid #ffffff16;border-radius:22px;padding:16px;backdrop-filter:blur(14px)}
+.f b{font-size:26px}.f h4{font-size:15px;margin-top:8px}.f p{font-size:12px;color:#aeb8d6;margin-top:6px;line-height:1.4}
+ol.steps{position:relative;z-index:2;list-style:none;counter-reset:s;display:grid;gap:10px}
+ol.steps li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;background:#ffffff0d;border:1px solid #ffffff16;border-radius:20px;padding:14px;font-size:14px;line-height:1.5;color:#d5dbef}
+ol.steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-weight:900;background:linear-gradient(135deg,#6a5cff,#00d5ff);color:#fff}
+ol.steps b{color:#fff}
+footer{position:relative;z-index:2;margin-top:28px;text-align:center;font-size:12px;color:#7f89a8;line-height:1.6}
+html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!important}
+@media(min-width:800px){.wrap{border:1px solid #ffffff1c;border-radius:42px;margin-top:28px;margin-bottom:28px;box-shadow:0 40px 120px #000}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<div class="orb o1"></div><div class="orb o2"></div>
+<header>
+<div class="logo"><div class="cube">A</div><div><h1>Abugram</h1><div class="mini">iPhone · iOS</div></div></div>
+<div class="lang"><button type="button" data-set="uz" aria-pressed="true">UZ</button><button type="button" data-set="ru" aria-pressed="false">RU</button></div>
+</header>
+
+<section class="card">
+<div class="tag"><span data-lang="uz">🛡 VPN kerak emas</span><span data-lang="ru">🛡 Без VPN</span></div>
+<h2 data-lang="uz">Telegram, lekin <span>kuchliroq</span></h2>
+<h2 data-lang="ru">Telegram, только <span>мощнее</span></h2>
+<p data-lang="uz">Abugram — ichki proxy bilan ishlaydigan Telegram mijozi. Bloklangan joyda ham VPN'siz ulanadi, ustiga yuzlab qo'shimcha sozlamalar.</p>
+<p data-lang="ru">Abugram — клиент Telegram со встроенным прокси. Подключается без VPN даже там, где Telegram заблокирован, плюс сотни дополнительных настроек.</p>
+<a class="btn" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest/download/Abugram.ipa"><span data-lang="uz">⬇️ Abugram.ipa yuklab olish</span><span data-lang="ru">⬇️ Скачать Abugram.ipa</span></a>
+<a class="btn dark" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases"><span data-lang="uz">Barcha versiyalar</span><span data-lang="ru">Все версии</span></a>
+<p class="note" data-lang="uz">IPA imzolanmagan: o'rnatish uchun quyidagi yo'riqnomaga qarang.</p>
+<p class="note" data-lang="ru">IPA не подписан: смотрите инструкцию по установке ниже.</p>
+</section>
+
+<h3 class="sec" data-lang="uz">Imkoniyatlar</h3>
+<h3 class="sec" data-lang="ru">Возможности</h3>
+<section class="features">
+<div class="f"><b>🛡</b><h4 data-lang="uz">VPN'siz</h4><h4 data-lang="ru">Без VPN</h4><p data-lang="uz">Ishlaydigan proxy'ni o'zi topib, avtomatik ulanadi.</p><p data-lang="ru">Сам находит рабочий прокси и подключается.</p></div>
+<div class="f"><b>👻</b><h4 data-lang="uz">Yashirin story</h4><h4 data-lang="ru">Скрытый просмотр</h4><p data-lang="uz">Story'larni ko'rganingiz bilinmaydi.</p><p data-lang="ru">Смотрите истории незаметно.</p></div>
+<div class="f"><b>🌐</b><h4 data-lang="uz">Tarjimon</h4><h4 data-lang="ru">Переводчик</h4><p data-lang="uz">Xabarlarni bir tugma bilan tarjima qilish.</p><p data-lang="ru">Перевод сообщений одной кнопкой.</p></div>
+<div class="f"><b>⚡</b><h4 data-lang="uz">Tez yuklash</h4><h4 data-lang="ru">Быстрая загрузка</h4><p data-lang="uz">Fayl yuklash va yuborish tezlashtirilgan.</p><p data-lang="ru">Ускоренная загрузка и отправка файлов.</p></div>
+<div class="f"><b>🎨</b><h4 data-lang="uz">Dizayn</h4><h4 data-lang="ru">Дизайн</h4><p data-lang="uz">Ixcham ro'yxat, tab'lar, stikerlar o'lchami.</p><p data-lang="ru">Компактный список, вкладки, размер стикеров.</p></div>
+<div class="f"><b>🔍</b><h4 data-lang="uz">Ko'proq ma'lumot</h4><h4 data-lang="ru">Больше данных</h4><p data-lang="uz">Profil ID, DC va ro'yxatdan o'tgan sana.</p><p data-lang="ru">ID профиля, DC и дата регистрации.</p></div>
+</section>
+
+<h3 class="sec" data-lang="uz">Qanday o'rnatiladi</h3>
+<h3 class="sec" data-lang="ru">Как установить</h3>
+<ol class="steps" data-lang="uz">
+<li><span>Yuqoridagi tugma orqali <b>Abugram.ipa</b> ni yuklab oling.</span></li>
+<li><span>iPhone'da <b>Esign</b>, <b>Scarlet</b> yoki <b>Feather</b>'ni oching. Kompyuterda bo'lsa: <b>Sideloadly</b> yoki <b>AltStore</b>.</span></li>
+<li><span>IPA faylni shu dasturga qo'shing va <b>Install</b> ni bosing.</span></li>
+<li><span><b>Sozlamalar → Umumiy → VPN va qurilmani boshqarish</b> bo'limida sertifikatga ishonch bering.</span></li>
+<li><span>Abugram'ni oching — proxy o'zi yoqiladi, VPN kerak emas.</span></li>
+</ol>
+<ol class="steps" data-lang="ru">
+<li><span>Скачайте <b>Abugram.ipa</b> кнопкой выше.</span></li>
+<li><span>Откройте на iPhone <b>Esign</b>, <b>Scarlet</b> или <b>Feather</b>. С компьютера: <b>Sideloadly</b> или <b>AltStore</b>.</span></li>
+<li><span>Добавьте IPA в приложение и нажмите <b>Install</b>.</span></li>
+<li><span>В <b>Настройки → Основные → VPN и управление устройством</b> доверьте сертификату.</span></li>
+<li><span>Откройте Abugram — прокси включится сам, VPN не нужен.</span></li>
+</ol>
+
+<footer>
+<p data-lang="uz">Abugram — Telegram Messenger kodiga asoslangan ochiq kodli mijoz (GPL). Telegram bilan rasmiy aloqasi yo'q.</p>
+<p data-lang="ru">Abugram — клиент с открытым кодом на основе Telegram Messenger (GPL). Не является официальным приложением Telegram.</p>
+<p><a href="https://github.com/Abdulaziz0196/Telegram-iOS">GitHub</a></p>
+</footer>
+</main>
+<script>
+(function(){
+  var root=document.documentElement;
+  function set(lang){
+    root.lang=lang;
+    document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.set===lang));});
+    try{localStorage.setItem('abugram-lang',lang);}catch(e){}
+  }
+  var saved=null;
+  try{saved=localStorage.getItem('abugram-lang');}catch(e){}
+  if(saved!=='uz'&&saved!=='ru'){saved=(navigator.language||'').toLowerCase().indexOf('ru')===0?'ru':'uz';}
+  set(saved);
+  document.querySelectorAll('.lang button').forEach(function(b){b.addEventListener('click',function(){set(b.dataset.set);});});
+})();
+</script>
+</body>
+</html>
