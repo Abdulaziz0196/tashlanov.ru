@@ -89,6 +89,24 @@ index adcaed5..10b7338 100644
      if(!peerId) {
        this.inited = undefined;
      } else if(!this.inited) {
+diff --git a/src/components/chat/contextMenu.ts b/src/components/chat/contextMenu.ts
+index f8d5e8c..1f24cbd 100644
+--- a/src/components/chat/contextMenu.ts
++++ b/src/components/chat/contextMenu.ts
+@@ -423,6 +423,13 @@ export default class ChatContextMenu {
+     // ! context menu click by date bubble (there is no pointer-events)
+     if((!bubble || bubble.classList.contains('bubble-first')) && !avatar) return;
+ 
++    // * Abugram: the menu opens on the message itself, not on the empty space beside its text (a press there
++    // * does nothing). Service messages and avatars keep their behaviour.
++    if(bubble && !contentWrapper && !avatar && !bubble.classList.contains('is-service')
++      && bubble.querySelector(':scope > .bubble-content-wrapper')) {
++      return;
++    }
++
+     let element = this.element;
+     // `!('touches' in e)` is the cross-realm-safe equivalent of `instanceof MouseEvent`: it stays true
+     // for a Document PiP window's mouse event (whose constructor is a different realm, so `instanceof`
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
 index 6c7c795..91910fa 100644
 --- a/src/components/sidebarLeft/index.ts

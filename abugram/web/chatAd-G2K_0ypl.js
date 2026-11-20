@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{mountAbugramAdCard as e}from"./ads-g-3YTGMP.js";var t;function n(n,r,i){t&&(t.el.remove(),t=void 0);let a=n.bubbles?.chatInner;if(!a)return;let o=document.createElement(`div`);o.className=`abugram-chat-ad-host`,a.prepend(o),t={chatId:0,el:o};let s=n.topbar?.container,c=()=>{s&&(o.style.top=s.offsetHeight+`px`)};c(),s&&typeof ResizeObserver<`u`&&new ResizeObserver(c).observe(s),e(o,`chat`);for(let e of[600,1800])setTimeout(()=>{!o.isConnected&&a.isConnected&&a.prepend(o)},e)}export{n as mountChatAd};
+//# sourceMappingURL=chatAd-G2K_0ypl.js.map
