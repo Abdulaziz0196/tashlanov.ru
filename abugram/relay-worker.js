@@ -9,8 +9,10 @@
 //   GET  /ads              the active ads, for the apps
 //   POST /ads/seen         body {"ids":[1,2]}: counts a view of each
 //   GET  /go/<id>          counts a click and redirects to the ad's link
+//   GET  /access?uid=<id>  what this Telegram account may use: {"ghost": bool, "admin": bool}
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
-//                          only with "Authorization: Bearer <ADMIN_PASSWORD>" (a secret set in Cloudflare)
+//   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
+//                          both only with "Authorization: Bearer <ADMIN_PASSWORD>" (a secret set in Cloudflare)
 const HTTP_ROUTE = /^\/((?:pluto|venus|aurora|vesta|flora)(?:-[a-z0-9]+)*)\/(apiw(?:_test)?1)$/i;
 const WS_ROUTE = /^\/((?:k|a)?ws[1-5](?:-[a-z0-9]+)*)\/(apiws(?:_test)?(?:_premium)?)$/i;
 const CORS = {
@@ -37,6 +39,12 @@ async function db(env) {
       created INTEGER NOT NULL DEFAULT 0,
       views INTEGER NOT NULL DEFAULT 0,
       clicks INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS access (
+      uid INTEGER PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      ghost INTEGER NOT NULL DEFAULT 0,
+      admin INTEGER NOT NULL DEFAULT 0
     )`).run();
     schemaReady = true;
   }
@@ -79,6 +87,35 @@ async function handleAds(request, env, url) {
     if(!row || !/^https?:\/\//i.test(row.url)) return new Response('Not found', {status: 404, headers: CORS});
     await d.prepare('UPDATE ads SET clicks = clicks + 1 WHERE id = ?').bind(Number(go[1])).run();
     return Response.redirect(row.url, 302);
+  }
+
+  if(path === '/access' && request.method === 'GET') {
+    const d = await db(env);
+    const uid = Number(url.searchParams.get('uid'));
+    const row = d && Number.isSafeInteger(uid) && uid > 0 ? await d.prepare('SELECT ghost, admin FROM access WHERE uid = ?').bind(uid).first() : null;
+    return json({ghost: !!(row && row.ghost), admin: !!(row && row.admin)}, 200, {'cache-control': 'no-store'});
+  }
+
+  if(path === '/admin/access') {
+    if(!isAdmin(request, env)) return json({error: 'unauthorized'}, 401);
+    const d = await db(env);
+    if(!d) return json({error: 'no database bound as DB'}, 500);
+    if(request.method === 'GET') {
+      const {results} = await d.prepare('SELECT * FROM access ORDER BY name').all();
+      return json({users: results});
+    }
+    if(request.method === 'POST') {
+      const b = await request.json();
+      const uid = Number(b.uid);
+      if(!Number.isSafeInteger(uid) || uid <= 0) return json({error: 'Telegram ID raqam bo\'lishi kerak'}, 400);
+      await d.prepare('INSERT INTO access (uid, name, ghost, admin) VALUES (?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin')
+        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0).run();
+      return json({ok: true});
+    }
+    if(request.method === 'DELETE') {
+      await d.prepare('DELETE FROM access WHERE uid = ?').bind(Number(url.searchParams.get('uid'))).run();
+      return json({ok: true});
+    }
   }
 
   if(path === '/admin/ads') {
@@ -127,7 +164,7 @@ export default {
       const target = 'https://' + ws[1].toLowerCase() + '.web.telegram.org/' + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/')) {
+    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/') || url.pathname === '/access') {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -135,6 +172,6 @@ export default {
         return json({error: String(e && e.message || e)}, 500);
       }
     }
-    return new Response('Abugram relay is running (v3).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v4).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };

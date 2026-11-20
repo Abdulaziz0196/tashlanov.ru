@@ -1,5 +1,5 @@
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
-index 6c7c795..7442b67 100644
+index 6c7c795..f158fc7 100644
 --- a/src/components/sidebarLeft/index.ts
 +++ b/src/components/sidebarLeft/index.ts
 @@ -479,6 +479,7 @@ export class AppSidebarLeft extends SidebarSlider {
@@ -10,7 +10,7 @@ index 6c7c795..7442b67 100644
      appDialogsManager.onSomeDrawerToggle = () => {
        this.onSomethingOpenInsideChange();
      };
-@@ -580,6 +581,68 @@ export class AppSidebarLeft extends SidebarSlider {
+@@ -580,6 +581,70 @@ export class AppSidebarLeft extends SidebarSlider {
    }
  
    private isAnimatingCollapse = false;
@@ -74,6 +74,8 @@ index 6c7c795..7442b67 100644
 +
 +    // * Abugram's own ad card at the top of the chat list (see lib/abugram/ads)
 +    import('@lib/abugram/ads').then(({default: mountAbugramAds}) => mountAbugramAds(this.chatListContainer)).catch(() => {});
++    // * what this account may use (ghost mode, admin page), as the Abugram admin set it
++    import('@lib/abugram/access').then(({loadAbugramAccess}) => loadAbugramAccess()).catch(() => {});
 +  }
 +
    // * settles as the bar's resize under way is over (`isAnimatingCollapse` back to false)
@@ -81,10 +83,10 @@ index 6c7c795..7442b67 100644
    private onSomethingOpenInsideChange = (force = false) => {
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..02cf7fe
+index 0000000..427eadd
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,123 @@
+@@ -0,0 +1,136 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
@@ -96,6 +98,7 @@ index 0000000..02cf7fe
 +import I18n from '@lib/langPack';
 +import {createSignal, For, onCleanup, onMount, Show} from 'solid-js';
 +import {abugramWatchSockets, AbugramSocketRecord} from '@lib/abugram/netStats';
++import {abugramAccess, ABUGRAM_ADMIN_URL, loadAbugramAccess} from '@lib/abugram/access';
 +
 +/** Settings → Abugram: the same switches as in Abugram for Android. */
 +const AbugramTab = () => {
@@ -105,6 +108,7 @@ index 0000000..02cf7fe
 +  const [sockets, setSockets] = createSignal<AbugramSocketRecord[]>([]);
 +  const [now, setNow] = createSignal(Date.now());
 +  onMount(() => {
++    loadAbugramAccess();
 +    const stop = abugramWatchSockets((records) => {
 +      setSockets(records.slice().reverse().slice(0, 20));
 +      setNow(Date.now());
@@ -171,12 +175,23 @@ index 0000000..02cf7fe
 +          <Row.Subtitle>{i18n('Abugram.Tabs.Create.Sub')}</Row.Subtitle>
 +        </Row>
 +      </Section>
++      <Show when={abugramAccess().admin}>
++        <Section>
++          <Row clickable={() => window.open(ABUGRAM_ADMIN_URL, '_blank', 'noopener')}>
++            <Row.Icon icon="settings" />
++            <Row.Title>{i18n('Abugram.Admin')}</Row.Title>
++            <Row.Subtitle>{i18n('Abugram.Admin.Sub')}</Row.Subtitle>
++          </Row>
++        </Section>
++      </Show>
++      <Show when={abugramAccess().ghost}>
 +      <Section name="Abugram.Ghost" caption="Abugram.Ghost.Info">
 +        <Toggle key="ghostRead" title="Abugram.GhostRead" subtitle="Abugram.GhostRead.Sub" />
 +        <Toggle key="ghostTyping" title="Abugram.GhostTyping" subtitle="Abugram.GhostTyping.Sub" />
 +        <Toggle key="ghostOnline" title="Abugram.GhostOnline" subtitle="Abugram.GhostOnline.Sub" />
 +        <Toggle key="ghostStories" title="Abugram.GhostStories" subtitle="Abugram.GhostStories.Sub" />
 +      </Section>
++      </Show>
 +      <Section name="Abugram.Messages" caption="Abugram.Messages.Info">
 +        <Toggle key="keepDeleted" title="Abugram.KeepDeleted" subtitle="Abugram.KeepDeleted.Sub" />
 +      </Section>
@@ -424,10 +439,10 @@ index 8b2be75..acc97e7 100644
    private drawCroppedFrame() {
      const v = this.drawVideo;
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..552bb53 100644
+index 9601966..2a1efa5 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
-@@ -1,4 +1,49 @@
+@@ -1,4 +1,51 @@
  const lang = {
 +  'Abugram.Title': 'Abugram',
 +  'Abugram.Settings.Row': 'Abugram',
@@ -450,6 +465,8 @@ index 9601966..552bb53 100644
 +  'Abugram.Look': 'Ko\'rinish · Внешний вид',
 +  'Abugram.HideStories': 'Story panelini yashirish',
 +  'Abugram.HideStories.Sub': 'Скрыть панель историй',
++  'Abugram.Admin': 'Admin panel',
++  'Abugram.Admin.Sub': 'Reklamalar, statistika, ruxsat berilganlar',
 +  'Abugram.Diag': 'Diagnostika · Диагностика',
 +  'Abugram.Diag.Info': 'Telegram\'ga ulanishlar: qancha yashadi, qancha yukladi (⬇) va yubordi (⬆), nega yopildi. Ulanish muammosi bo\'lsa, shu ro\'yxatning skrinshotini yuboring.',
 +  'Abugram.Diag.Empty': 'Hali ulanish yo\'q',
@@ -477,6 +494,48 @@ index 9601966..552bb53 100644
    'Animations': 'Animations',
    'AttachAlbum': 'Album',
    'Appearance.Color.Hex': 'HEX',
+diff --git a/src/lib/abugram/access.ts b/src/lib/abugram/access.ts
+new file mode 100644
+index 0000000..5b50118
+--- /dev/null
++++ b/src/lib/abugram/access.ts
+@@ -0,0 +1,36 @@
++/**
++ * Abugram: what this account may use, as the Abugram admin set it (relay /access): ghost mode for the accounts
++ * allowed it, the admin page link for admins. Everyone else gets neither; their ghost switches have no effect.
++ */
++import {createRoot, createSignal} from 'solid-js';
++import rootScope from '@lib/rootScope';
++import {setAppSettings, appSettings} from '@stores/appSettings';
++
++export type AbugramAccess = {ghost: boolean, admin: boolean};
++
++const [access, setAccess] = createRoot(() => createSignal<AbugramAccess>({ghost: false, admin: false}));
++export const abugramAccess = access;
++
++export const ABUGRAM_ADMIN_URL = 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/admin.html';
++
++function relayBase(): string {
++  const relay: string = import.meta.env.VITE_ABUGRAM_RELAY || '';
++  return relay.replace(/^wss:/i, 'https:').replace(/\/+$/, '');
++}
++
++export async function loadAbugramAccess() {
++  const base = relayBase();
++  const uid = rootScope.myId ? rootScope.myId.toUserId() : 0;
++  if(!base || !uid) return;
++  try {
++    const response = await fetch(base + '/access?uid=' + uid, {cache: 'no-store'});
++    const result = await response.json();
++    const value: AbugramAccess = {ghost: !!result.ghost, admin: !!result.admin};
++    setAccess(value);
++    // * the request filter (in the MTProto worker) honours the ghost switches only while this is set
++    if(!!appSettings.abugram?.ghostAllowed !== value.ghost) {
++      if(appSettings.abugram) setAppSettings('abugram', 'ghostAllowed', value.ghost);
++      else setAppSettings('abugram', {ghostAllowed: value.ghost});
++    }
++  } catch(err) {}
++}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
 new file mode 100644
 index 0000000..e183da6
@@ -661,10 +720,10 @@ index 0000000..f5e7bb5
 +}
 diff --git a/src/lib/abugram/settings.ts b/src/lib/abugram/settings.ts
 new file mode 100644
-index 0000000..748c097
+index 0000000..5a3a82f
 --- /dev/null
 +++ b/src/lib/abugram/settings.ts
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,70 @@
 +/**
 + * Abugram feature switches, kept in `settings.abugram` of the account state (Settings → Abugram).
 + * Everything is off by default except hiding sponsored messages, as in Abugram for Android.
@@ -678,7 +737,9 @@ index 0000000..748c097
 +  hideSponsored: boolean,
 +  hideStories: boolean,
 +  confirmCalls: boolean,
-+  showSeconds: boolean
++  showSeconds: boolean,
++  /** set from the relay's /access: whether the Abugram admin allowed this account ghost mode */
++  ghostAllowed: boolean
 +};
 +
 +export const ABUGRAM_DEFAULTS: AbugramSettings = {
@@ -690,7 +751,8 @@ index 0000000..748c097
 +  hideSponsored: false,
 +  hideStories: false,
 +  confirmCalls: true,
-+  showSeconds: true
++  showSeconds: true,
++  ghostAllowed: false
 +};
 +
 +export function getAbugramSettings(settings: {abugram?: Partial<AbugramSettings>} | undefined): AbugramSettings {
@@ -705,6 +767,9 @@ index 0000000..748c097
 + * still turns read here; only the other side is not told). `account.updateStatus` is sent, but always as offline.
 + */
 +export function abugramFilterRequest(method: string, params: any, s: AbugramSettings, currentPts: number): AbugramFilterResult {
++  if(!s.ghostAllowed) {
++    s = {...s, ghostRead: false, ghostTyping: false, ghostOnline: false, ghostStories: false};
++  }
 +  if(s.ghostRead) {
 +    switch(method) {
 +      case 'messages.readHistory':
@@ -1040,7 +1105,7 @@ index fa10ae2..24265b1 100644
    };
  }
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..d4212c5 100644
+index 02c16ac..1ad5469 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -1051,10 +1116,12 @@ index 02c16ac..d4212c5 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,24 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,26 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
++    {id: 'AppAbugramTab:Abugram.Admin', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Admin'},
++    {id: 'AppAbugramTab:Abugram.Admin.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Admin.Sub'},
 +    {id: 'AppAbugramTab:Abugram.Calls', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Calls'},
 +    {id: 'AppAbugramTab:Abugram.Diag', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Diag'},
 +    {id: 'AppAbugramTab:Abugram.Diag.Empty', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Diag.Empty'},
