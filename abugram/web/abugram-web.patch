@@ -745,10 +745,10 @@ index 0000000..6dc855e
 +}
 diff --git a/src/lib/abugram/chatAd.ts b/src/lib/abugram/chatAd.ts
 new file mode 100644
-index 0000000..9b515f7
+index 0000000..2d3ffad
 --- /dev/null
 +++ b/src/lib/abugram/chatAd.ts
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,29 @@
 +/**
 + * Abugram: the ad card at the top of a chat (private chats, groups, bots and channels), under the chat header.
 + * It is the same card as at the top of the chat list (lib/abugram/ads), and is counted the same way.
@@ -757,18 +757,26 @@ index 0000000..9b515f7
 +
 +let mounted: {chatId: number, el: HTMLElement};
 +
-+export function mountChatAd(chat: {topbar: {container: HTMLElement}, peerId?: PeerId}, peerId: PeerId, managers: any) {
++export function mountChatAd(chat: any, peerId: any, managers: any) {
 +  if(mounted) {
 +    mounted.el.remove();
 +    mounted = undefined;
 +  }
-+  const host = chat.topbar?.container;
-+  if(!host) return;
++  // * inside the messages, at the very top: the same place as Telegram's own sponsored message, so it is never hidden
++  // * under the header, and it scrolls with the chat
++  const inner: HTMLElement = (chat as any).bubbles?.chatInner;
++  if(!inner) return;
 +  const el = document.createElement('div');
 +  el.className = 'abugram-chat-ad-host';
-+  host.after(el);
++  inner.prepend(el);
 +  mounted = {chatId: 0, el};
 +  mountAbugramAdCard(el, 'chat');
++  // * the messages are drawn after the chat is opened and can clear the top: put the card back if they did
++  for(const delay of [600, 1800]) {
++    setTimeout(() => {
++      if(!el.isConnected && inner.isConnected) inner.prepend(el);
++    }, delay);
++  }
 +}
 diff --git a/src/lib/abugram/netStats.ts b/src/lib/abugram/netStats.ts
 new file mode 100644
