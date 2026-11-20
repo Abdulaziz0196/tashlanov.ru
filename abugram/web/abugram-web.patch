@@ -496,10 +496,10 @@ index 9601966..2a1efa5 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/access.ts b/src/lib/abugram/access.ts
 new file mode 100644
-index 0000000..5b50118
+index 0000000..1c15c60
 --- /dev/null
 +++ b/src/lib/abugram/access.ts
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,51 @@
 +/**
 + * Abugram: what this account may use, as the Abugram admin set it (relay /access): ghost mode for the accounts
 + * allowed it, the admin page link for admins. Everyone else gets neither; their ghost switches have no effect.
@@ -524,6 +524,21 @@ index 0000000..5b50118
 +  const base = relayBase();
 +  const uid = rootScope.myId ? rootScope.myId.toUserId() : 0;
 +  if(!base || !uid) return;
++  // * counted once a day as an Abugram user (the relay keeps only a hash of the ID) - for the user counts on the stats page
++  const helloKey = 'abugram.hello.' + uid;
++  const today = new Date().toISOString().slice(0, 10);
++  let said: string;
++  try {
++    said = localStorage.getItem(helloKey);
++  } catch(err) {}
++  if(said !== today) {
++    fetch(base + '/hello', {method: 'POST', body: JSON.stringify({uid, platform: 'web'}), keepalive: true}).then(() => {
++      try {
++        localStorage.setItem(helloKey, today);
++      } catch(err) {}
++    }).catch(() => {});
++  }
++
 +  try {
 +    const response = await fetch(base + '/access?uid=' + uid, {cache: 'no-store'});
 +    const result = await response.json();

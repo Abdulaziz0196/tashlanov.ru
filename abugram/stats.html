@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abugram Statistika</title>
+<meta name="description" content="Abugram foydalanuvchilari statistikasi">
+<style>
+:root{--bg:#f4f4f8;--card:#fff;--line:#e6e6ee;--grid:#ececf2;--text:#14141c;--muted:#5d5d6e;--bar:#6A5CFF;--bar-hover:#4f41e6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f0f17;--card:#1b1b27;--line:#2c2c3c;--grid:#262634;--text:#f2f2f7;--muted:#a3a3b5;--bar:#8B80FF;--bar-hover:#a79fff}}
+:root[data-theme="dark"]{--bg:#0f0f17;--card:#1b1b27;--line:#2c2c3c;--grid:#262634;--text:#f2f2f7;--muted:#a3a3b5;--bar:#8B80FF;--bar-hover:#a79fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 56px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.brand img{width:36px;height:36px;border-radius:9px}
+h1{font-size:24px;margin:0}
+.sub{color:var(--muted);margin:2px 0 20px;font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:640px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .k{font-size:13px;color:var(--muted)}
+.tile .v{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+.card h2{font-size:16px;margin:0 0 2px}.card .note{color:var(--muted);font-size:13px;margin:0 0 12px}
+.split{display:flex;gap:16px;flex-wrap:wrap}.split div{min-width:120px}
+.split .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}.split .k{font-size:13px;color:var(--muted)}
+.chart{position:relative;overflow:hidden;padding-top:34px;margin-top:-34px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.axis{fill:var(--muted);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);margin-top:-8px;display:none}
+details{margin-top:10px;font-size:14px}summary{cursor:pointer;color:var(--muted)}
+table{border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}td,th{padding:4px 14px 4px 0;text-align:left;border-bottom:1px solid var(--line)}
+.foot{color:var(--muted);font-size:12px;margin-top:16px}
+.empty{color:var(--muted);font-size:14px;padding:24px 0;text-align:center}
+</style></head><body><main>
+<div class="brand"><img src="web/assets/img/apple-touch-icon.png" alt=""><h1>Abugram statistikasi</h1></div>
+<p class="sub">Abugram (Telegram klienti) foydalanuvchilari — ilovani ochgan akkauntlar soni. Shaxsiy ma'lumot saqlanmaydi.</p>
+<div class="tiles">
+  <div class="tile"><div class="k">Jami foydalanuvchilar</div><div class="v" id="total">—</div></div>
+  <div class="tile"><div class="k">Bugun faol</div><div class="v" id="today">—</div></div>
+  <div class="tile"><div class="k">7 kunda faol</div><div class="v" id="d7">—</div></div>
+  <div class="tile"><div class="k">30 kunda faol</div><div class="v" id="d30">—</div></div>
+</div>
+<div class="card">
+  <h2>Kunlik faol foydalanuvchilar</h2><p class="note">Oxirgi 30 kun</p>
+  <div class="chart" id="chart"></div>
+  <details><summary>Jadval ko'rinishida</summary><table id="table"><thead><tr><th>Kun</th><th>Faol</th></tr></thead><tbody></tbody></table></details>
+</div>
+<div class="card">
+  <h2>Platformalar</h2><p class="note">Jami foydalanuvchilar, ilova turi bo'yicha</p>
+  <div class="split" id="platforms"></div>
+</div>
+<p class="foot" id="updated"></p>
+</main>
+<script>
+var RELAY='https://winter-cake-2d11.tashlanow.workers.dev';
+var fmt=function(n){return (n||0).toLocaleString('ru-RU');};
+function render(s){
+  ['total','today','d7','d30'].forEach(function(k){document.getElementById(k).textContent=fmt(s[k]);});
+  var names={web:'Veb (iPhone, kompyuter)',android:'Android'},p=document.getElementById('platforms');p.innerHTML='';
+  Object.keys(names).forEach(function(k){var d=document.createElement('div');d.innerHTML='<div class="v"></div><div class="k"></div>';d.querySelector('.v').textContent=fmt((s.platforms||{})[k]);d.querySelector('.k').textContent=names[k];p.appendChild(d);});
+  // last 30 days, missing days as 0
+  var map={};(s.days||[]).forEach(function(r){map[r.day]=r.n;});
+  var days=[],now=Date.now();for(var i=29;i>=0;i--){var d=new Date(now-i*864e5).toISOString().slice(0,10);days.push({day:d,n:map[d]||0});}
+  var tb=document.querySelector('#table tbody');tb.innerHTML='';days.slice().reverse().forEach(function(r){var tr=document.createElement('tr');tr.innerHTML='<td></td><td></td>';tr.children[0].textContent=r.day;tr.children[1].textContent=fmt(r.n);tb.appendChild(tr);});
+  var max=Math.max.apply(null,days.map(function(r){return r.n;}));
+  var chart=document.getElementById('chart');
+  if(!max){chart.innerHTML='<div class="empty">Hali ma\'lumot yo\'q</div>';return;}
+  var W=Math.max(280,Math.round(chart.clientWidth||800)),H=220,L=36,R=8,T=10,B=26,pw=W-L-R,ph=H-T-B,slot=pw/days.length,bw=Math.min(18,slot*0.62);
+  var step=Math.pow(10,Math.floor(Math.log10(max)));var nice=[1,2,5,10].map(function(m){return m*step;}).find(function(v){return v>=max/4;})||step;var top=Math.ceil(max/nice)*nice;
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Kunlik faol foydalanuvchilar, oxirgi 30 kun">';
+  for(var g=0;g<=top;g+=nice){var y=T+ph-(g/top)*ph;svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="var(--grid)" stroke-width="1"/><text class="axis" x="'+(L-6)+'" y="'+(y+4)+'" text-anchor="end">'+fmt(g)+'</text>';}
+  days.forEach(function(r,i){var x=L+i*slot+(slot-bw)/2,h=(r.n/top)*ph,y=T+ph-h,rad=Math.min(4,h/2,bw/2);
+    if(h>0) svg+='<path class="bar" data-i="'+i+'" fill="var(--bar)" d="M'+x+','+(T+ph)+'V'+(y+rad)+'Q'+x+','+y+' '+(x+rad)+','+y+'H'+(x+bw-rad)+'Q'+(x+bw)+','+y+' '+(x+bw)+','+(y+rad)+'V'+(T+ph)+'Z"/>';
+    svg+='<rect class="hit" data-i="'+i+'" x="'+(L+i*slot)+'" y="'+T+'" width="'+slot+'" height="'+ph+'" fill="transparent"/>';
+    if((i%7===0&&i<days.length-4)||i===days.length-1) svg+='<text class="axis" x="'+(L+i*slot+slot/2)+'" y="'+(H-8)+'" text-anchor="middle">'+r.day.slice(5).replace('-','.')+'</text>';});
+  svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+(T+ph)+'" y2="'+(T+ph)+'" stroke="var(--line)" stroke-width="1"/></svg><div class="tip" id="tip"></div>';
+  chart.innerHTML=svg;
+  var tip=document.getElementById('tip'),svgEl=chart.querySelector('svg');
+  function show(i){var r=days[i],b=chart.querySelector('.bar[data-i="'+i+'"]');chart.querySelectorAll('.bar').forEach(function(e){e.setAttribute('fill','var(--bar)');});if(b)b.setAttribute('fill','var(--bar-hover)');
+    var sc=svgEl.getBoundingClientRect().width/W,x=(L+i*slot+slot/2)*sc,y=(T+ph-(r.n/top)*ph)*sc;tip.textContent=r.day+' · '+fmt(r.n)+' faol';tip.style.display='block';var half=tip.offsetWidth/2,cw=chart.clientWidth;x=Math.max(half,Math.min(cw-half,x));tip.style.left=x+'px';tip.style.top=y+'px';tip.style.display='block';}
+  chart.querySelectorAll('.hit').forEach(function(h){h.addEventListener('mouseenter',function(){show(+h.dataset.i);});h.addEventListener('touchstart',function(){show(+h.dataset.i);},{passive:true});});
+  svgEl.addEventListener('mouseleave',function(){tip.style.display='none';chart.querySelectorAll('.bar').forEach(function(e){e.setAttribute('fill','var(--bar)');});});
+  document.getElementById('updated').textContent='Yangilangan: '+new Date(s.updated||Date.now()).toLocaleString('ru-RU');
+}
+var last;window.addEventListener('resize',function(){if(last)render(last);});
+fetch(RELAY+'/stats').then(function(r){return r.json();}).then(function(s){last=s;render(s);}).catch(function(){document.getElementById('chart').innerHTML='<div class="empty">Statistika hozircha mavjud emas</div>';});
+</script></body></html>

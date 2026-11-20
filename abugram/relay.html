@@ -35,7 +35,11 @@ b{color:var(--text)}
 //   POST /ads/seen         body {&quot;ids&quot;:[1,2]}: counts a view of each
 //   GET  /go/&lt;id&gt;          counts a click and redirects to the ad&#x27;s link
 //   GET  /access?uid=&lt;id&gt;  what this Telegram account may use: {&quot;ghost&quot;: bool, &quot;admin&quot;: bool}
+//   POST /hello            body {&quot;uid&quot;: &lt;id&gt;, &quot;platform&quot;: &quot;web&quot;|&quot;android&quot;}: counts the account as active today; only a
+//                          SHA-256 of the ID is kept, never the ID
+//   GET  /stats            user counts for advertisers: total, today, 7 and 30 days, by platform, the last 30 days
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
+//   /admin/stats           the same as /stats (for the admin page)
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          both only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare)
 const HTTP_ROUTE = /^\/((?:pluto|venus|aurora|vesta|flora)(?:-[a-z0-9]+)*)\/(apiw(?:_test)?1)$/i;
@@ -70,6 +74,12 @@ async function db(env) {
       name TEXT NOT NULL DEFAULT &#x27;&#x27;,
       ghost INTEGER NOT NULL DEFAULT 0,
       admin INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+      h TEXT PRIMARY KEY, platform TEXT NOT NULL DEFAULT &#x27;&#x27;, first INTEGER NOT NULL DEFAULT 0, last INTEGER NOT NULL DEFAULT 0
+    )`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily (
+      day TEXT NOT NULL, h TEXT NOT NULL, platform TEXT NOT NULL DEFAULT &#x27;&#x27;, PRIMARY KEY (day, h)
     )`).run();
     schemaReady = true;
   }
@@ -119,6 +129,45 @@ async function handleAds(request, env, url) {
     const uid = Number(url.searchParams.get(&#x27;uid&#x27;));
     const row = d &amp;&amp; Number.isSafeInteger(uid) &amp;&amp; uid &gt; 0 ? await d.prepare(&#x27;SELECT ghost, admin FROM access WHERE uid = ?&#x27;).bind(uid).first() : null;
     return json({ghost: !!(row &amp;&amp; row.ghost), admin: !!(row &amp;&amp; row.admin)}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/hello&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const d = await db(env);
+    if(!d) return json({ok: true});
+    let b = {};
+    try { b = await request.json(); } catch(e) {}
+    const uid = Number(b.uid);
+    if(!Number.isSafeInteger(uid) || uid &lt;= 0) return json({ok: false}, 400);
+    const platform = b.platform === &#x27;android&#x27; ? &#x27;android&#x27; : &#x27;web&#x27;;
+    const digest = await crypto.subtle.digest(&#x27;SHA-256&#x27;, new TextEncoder().encode(&#x27;abugram-user:&#x27; + uid));
+    const h = [...new Uint8Array(digest)].map((x) =&gt; x.toString(16).padStart(2, &#x27;0&#x27;)).join(&#x27;&#x27;);
+    const now = Date.now();
+    const day = new Date(now).toISOString().slice(0, 10);
+    await d.batch([
+      d.prepare(&#x27;INSERT INTO users (h, platform, first, last) VALUES (?, ?, ?, ?) ON CONFLICT(h) DO UPDATE SET last = excluded.last, platform = excluded.platform&#x27;).bind(h, platform, now, now),
+      d.prepare(&#x27;INSERT OR IGNORE INTO daily (day, h, platform) VALUES (?, ?, ?)&#x27;).bind(day, h, platform)
+    ]);
+    return json({ok: true});
+  }
+
+  if(path === &#x27;/stats&#x27; || path === &#x27;/admin/stats&#x27;) {
+    const d = await db(env);
+    if(!d) return json({total: 0, today: 0, d7: 0, d30: 0, platforms: {}, days: []});
+    const now = Date.now();
+    const count = async(sql, ...args) =&gt; (await d.prepare(sql).bind(...args).first()).n;
+    const since = (days) =&gt; new Date(now - days * 864e5).toISOString().slice(0, 10);
+    const today = new Date(now).toISOString().slice(0, 10);
+    const [total, todayN, d7, d30] = await Promise.all([
+      count(&#x27;SELECT COUNT(*) AS n FROM users&#x27;),
+      count(&#x27;SELECT COUNT(*) AS n FROM daily WHERE day = ?&#x27;, today),
+      count(&#x27;SELECT COUNT(DISTINCT h) AS n FROM daily WHERE day &gt; ?&#x27;, since(7)),
+      count(&#x27;SELECT COUNT(DISTINCT h) AS n FROM daily WHERE day &gt; ?&#x27;, since(30))
+    ]);
+    const {results: platformRows} = await d.prepare(&#x27;SELECT platform, COUNT(*) AS n FROM users GROUP BY platform&#x27;).all();
+    const {results: days} = await d.prepare(&#x27;SELECT day, COUNT(*) AS n FROM daily WHERE day &gt; ? GROUP BY day ORDER BY day&#x27;).bind(since(30)).all();
+    const platforms = {};
+    for(const row of platformRows) platforms[row.platform] = row.n;
+    return json({total, today: todayN, d7, d30, platforms, days, updated: now}, 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=300&#x27;});
   }
 
   if(path === &#x27;/admin/access&#x27;) {
@@ -189,7 +238,7 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27;) {
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27;) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -197,7 +246,7 @@ export default {
         return json({error: String(e &amp;&amp; e.message || e)}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v4).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v5).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
