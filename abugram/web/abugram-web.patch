@@ -74,6 +74,21 @@ index 0000000..a2dc111
 +
 +  return bar;
 +}
+diff --git a/src/components/chat/chat.ts b/src/components/chat/chat.ts
+index adcaed5..10b7338 100644
+--- a/src/components/chat/chat.ts
++++ b/src/components/chat/chat.ts
+@@ -1294,6 +1294,10 @@ export default class Chat extends EventListenerBase<{
+ 
+   public setPeer(options: ChatSetPeerOptions) {
+     const {peerId, threadId, monoforumThreadId, messages, type} = options;
++    // * Abugram: our ad card at the top of the chat (not in channels)
++    if(peerId) {
++      import('@lib/abugram/chatAd').then(({mountChatAd}) => mountChatAd(this, peerId, this.managers)).catch(() => {});
++    }
+     if(!peerId) {
+       this.inited = undefined;
+     } else if(!this.inited) {
 diff --git a/src/components/sidebarLeft/index.ts b/src/components/sidebarLeft/index.ts
 index 6c7c795..5cf631f 100644
 --- a/src/components/sidebarLeft/index.ts
@@ -632,10 +647,10 @@ index 0000000..1c15c60
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
 new file mode 100644
-index 0000000..e183da6
+index 0000000..e776a73
 --- /dev/null
 +++ b/src/lib/abugram/ads.ts
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,105 @@
 +/**
 + * Abugram's own ads: one card at the top of the chat list, labelled as an ad, from the Abugram relay's /ads
 + * (managed on the Abugram admin page). A view is counted once per start, a click through /go/<id>. The card can
@@ -660,6 +675,10 @@ index 0000000..e183da6
 +}
 +
 +export default async function mountAbugramAds(container: HTMLElement) {
++  return mountAbugramAdCard(container, 'list');
++}
++
++export async function mountAbugramAdCard(container: HTMLElement, place: 'list' | 'chat') {
 +  const base = relayBase();
 +  if(!base || !container || Date.now() < hiddenUntil()) return;
 +
@@ -734,8 +753,41 @@ index 0000000..e183da6
 +    if(e.key === 'Enter') open();
 +  });
 +
-+  container.prepend(card);
++  if(place === 'chat') container.append(card); else container.prepend(card);
 +  fetch(base + '/ads/seen', {method: 'POST', body: JSON.stringify({ids: [ad.id]}), keepalive: true}).catch(() => {});
++}
+diff --git a/src/lib/abugram/chatAd.ts b/src/lib/abugram/chatAd.ts
+new file mode 100644
+index 0000000..5130d2a
+--- /dev/null
++++ b/src/lib/abugram/chatAd.ts
+@@ -0,0 +1,27 @@
++/**
++ * Abugram: the ad card at the top of a chat (private chats, groups and bots; never channels), under the chat header.
++ * It is the same card as at the top of the chat list (lib/abugram/ads), and is counted the same way.
++ */
++import {mountAbugramAdCard} from '@lib/abugram/ads';
++
++let mounted: {chatId: number, el: HTMLElement};
++
++export function mountChatAd(chat: {topbar: {container: HTMLElement}, peerId?: PeerId}, peerId: PeerId, managers: any) {
++  if(mounted) {
++    mounted.el.remove();
++    mounted = undefined;
++  }
++  // * channels are left alone: their posts are the content, and an ad above them reads as a post
++  try {
++    if(managers?.appPeersManager?.isBroadcast?.(peerId)) return;
++  } catch(err) {
++    return;
++  }
++  const host = chat.topbar?.container;
++  if(!host) return;
++  const el = document.createElement('div');
++  el.className = 'abugram-chat-ad-host';
++  host.after(el);
++  mounted = {chatId: 0, el};
++  mountAbugramAdCard(el, 'chat');
 +}
 diff --git a/src/lib/abugram/netStats.ts b/src/lib/abugram/netStats.ts
 new file mode 100644

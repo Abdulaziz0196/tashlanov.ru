@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{t as e}from"./privacyTab-B-j77vSf.js";import{t}from"./privacySection-siO_CVIB.js";var n=`PrivacySettingsController.Forwards.CustomHelp`,r=e(`privacy-forward-messages`,e=>{new t({tab:e,title:`PrivacyForwardsTitle`,inputKey:`inputPrivacyKeyForwards`,captions:[n,n,n],exceptionTexts:[`PrivacySettingsController.NeverAllow`,`PrivacySettingsController.AlwaysAllow`],appendTo:e.scrollable,managers:e.managers})});export{r as default};
+//# sourceMappingURL=forwardMessages-C4eL6yq4.js.map
