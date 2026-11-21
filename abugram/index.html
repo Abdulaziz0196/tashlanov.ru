@@ -299,7 +299,9 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
         btn.href=asset.browser_download_url;btn.removeAttribute('aria-disabled');
         var mb=(asset.size/1048576).toFixed(0);
         var d=new Date(rel.published_at);
-        document.getElementById('meta-'+key).textContent=rel.name+' · '+mb+' MB · '+d.toLocaleDateString();
+        var pad=function(n){return (n<10?'0':'')+n;};
+        var when=pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+        document.getElementById('meta-'+key).textContent=rel.name+' · '+mb+' MB · '+when;
         if(warnUz){setStatus('warn','🧪',warnUz,warnRu);}else{setStatus('ok','✅','Tayyor','Готово');}
       })
       .catch(function(){
