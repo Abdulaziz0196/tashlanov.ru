@@ -295,7 +295,7 @@ public class MainActivity extends Activity {
             committed = false;
             autoRetries = 0;
             showLoader("Instagram yuklanmoqda…", proxyInfo());
-            ig.loadUrl(IG);
+            ig.loadUrl(startUrl());
             igLoaded = true;
             ui.removeCallbacks(watchdog);
             ui.postDelayed(watchdog, LOAD_LIMIT_MS);
@@ -387,6 +387,9 @@ public class MainActivity extends Activity {
                 String sch = u.getScheme() == null ? "" : u.getScheme();
                 if (sch.equals("https") && (h.endsWith("instagram.com") || h.endsWith("facebook.com") || h.endsWith("fbcdn.net") || h.endsWith("cdninstagram.com")))
                     return false;
+                // "ilovani oching" havolalari (intent:, instagram:, Play Market) — e'tiborsiz qoldiramiz
+                if (sch.equals("intent") || sch.equals("instagram") || sch.equals("market") || h.endsWith("play.google.com") || h.endsWith("apps.apple.com"))
+                    return true;
                 openExternal(u);
                 return true;
             }
@@ -408,6 +411,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView v, String url) {
                 topBar.setVisibility(View.GONE);
+                // kirish ma'lumotlari (cookie) darhol diskka yozilsin — ilova yopilsa ham akkaunt saqlanib qoladi
+                CookieManager.getInstance().flush();
                 authTries = 0;
                 if (!hadError) autoRetries = 0;
                 hadError = false;
@@ -433,7 +438,7 @@ public class MainActivity extends Activity {
                     showLoader("Boshqa proksiga o'tilmoqda… (" + autoRetries + "/5)", proxyInfo());
                     ui.removeCallbacks(watchdog);
                     ui.postDelayed(watchdog, LOAD_LIMIT_MS);
-                    ui.postDelayed(() -> v.loadUrl(IG), 400);
+                    ui.postDelayed(() -> v.loadUrl(startUrl()), 400);
                     return;
                 }
                 toHomeWithErr("Ulanib bo'lmadi: " + e.getDescription());
@@ -530,7 +535,7 @@ public class MainActivity extends Activity {
         ig.stopLoading();
         ui.removeCallbacks(watchdog);
         ui.postDelayed(watchdog, LOAD_LIMIT_MS);
-        ui.postDelayed(() -> ig.loadUrl(IG), 300);
+        ui.postDelayed(() -> ig.loadUrl(startUrl()), 300);
     }
 
     /** Sahifa belgilangan vaqtda ko'rinmadi (sekin yoki "osilgan" proksi) — boshqasiga o'tamiz. */
@@ -625,4 +630,14 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
+
+    @Override
+    protected void onStop() { super.onStop(); CookieManager.getInstance().flush(); }
+
+    /** Akkauntga kirilgan bo'lsa — lenta, aks holda to'g'ridan-to'g'ri login sahifasi ("ilovani oching" sahifasisiz). */
+    String startUrl() {
+        String c = CookieManager.getInstance().getCookie(IG);
+        boolean logged = c != null && c.contains("sessionid=");
+        return logged ? IG : IG + "accounts/login/";
+    }
 }
