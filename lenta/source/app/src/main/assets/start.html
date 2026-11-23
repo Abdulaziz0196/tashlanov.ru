@@ -213,6 +213,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
     <div class="ch"><span class="ic"><svg class="i"><use href="#i-txt"/></svg></span><h2>Matn o‘lchami</h2></div>
     <input type="range" id="zoom" min="85" max="130" step="5">
     <div class="zl"><span>Kichik</span><b id="zv"></b><span>Katta</span></div>
+    <div class="sw"><div>Ovoz<small>Ochilish va ulanish ovozlari</small></div><button class="tg" id="snd" aria-label="Ovoz"></button></div>
     <div class="sw"><div>Tejamkor rejim<small>Videolar o‘zi qo‘yilmaydi — Tor’da ancha tezroq</small></div><button class="tg" id="eco" aria-label="Tejamkor rejim"></button></div>
     <div class="sw"><div>Darhol ochilsin<small>Ilova ishga tushganda shu sahifani o‘tkazib yuborish</small></div><button class="tg" id="auto" aria-label="Darhol ochilsin"></button></div>
   </div>
@@ -236,7 +237,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var N=window.Native||{ // brauzerda sinash uchun
-  _c:{version:'4.4',proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
+  _c:{version:'4.7',sound:true,proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
   setBridges:function(t){return (t.match(/^(webtunnel|obfs4|snowflake|meek_lite) /gm)||[]).length},nextBridge:function(){},
   connect:function(){if(this._t)return;if(C.mode==='auto'){var t=0;this._t=setInterval(function(){t+=23;var f=t>200?1+Math.floor((t-200)/60):0;window.onPx(Math.min(t,480),480,f);if(f>=2){clearInterval(N._t);N._ready=true;window.onPxReady()}},250);return}var p=0,tags=['conn_pt','handshake','loading_status','loading_descriptors','circuit_create','done'];this._t=setInterval(function(){p=Math.min(100,p+Math.ceil(Math.random()*14));window.onTor(p,tags[Math.min(5,Math.floor(p/20))],'WebTunnel',1,4);if(p>=100){clearInterval(N._t);N._ready=true;window.onTorReady()}},300)},
   config:function(){return JSON.stringify(this._c)},save:function(j){this._c=JSON.parse(j)},
@@ -264,6 +265,22 @@ function baseStatus(){if(!C.proxyOk)return status('bad','WebView eskirgan');
   if(C.mode==='direct')return status('','To‘g‘ridan');
   C.proxy?status('ok','Proksi sozlangan'):status('bad','Proksi kiritilmagan')}
 
+// ---- ovozlar (fayl kerak emas — brauzerning o'zi sintez qiladi) ----
+var AC=null;
+function ac(){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
+function tone(a,f,t0,dur,vol,type){var o=a.createOscillator(),g=a.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t0);
+  g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g);g.connect(a.destination);o.start(t0);o.stop(t0+dur+0.05)}
+function whoosh(a,t0){var n=a.sampleRate*0.6,b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);for(var i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+  var s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();s.buffer=b;f.type='bandpass';f.Q.value=0.9;
+  f.frequency.setValueAtTime(300,t0);f.frequency.exponentialRampToValueAtTime(3200,t0+0.5);g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.12,t0+0.15);g.gain.exponentialRampToValueAtTime(0.0001,t0+0.6);
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t0)}
+function soundIntro(){if(C.sound===false)return;var a=ac();if(!a)return;var t=a.currentTime+0.05;
+  whoosh(a,t);[523.25,659.25,783.99,1046.5].forEach(function(f,i){tone(a,f,t+0.35+i*0.11,0.9,0.16)});tone(a,130.8,t+0.35,1.2,0.10,'triangle')}
+function soundReady(){if(C.sound===false)return;var a=ac();if(!a)return;var t=a.currentTime+0.02;tone(a,1318.5,t,0.35,0.14);tone(a,1760,t+0.12,0.6,0.14)}
+var readyPlayed=false;function ready1(){if(!readyPlayed){readyPlayed=true;soundReady()}}
+setTimeout(soundIntro,150);
+
 // splash harflari
 $('#word').innerHTML='Lenta'.split('').map(function(c,i){return '<span style="animation-delay:'+(.45+i*.08)+'s">'+c+'</span>'}).join('');
 
@@ -275,6 +292,8 @@ $('#px').value=C.proxy;$('#pu').value=C.user;$('#pp').value=C.pass;$('#zoom').va
 $('#zoom').addEventListener('input',function(){C.zoom=+this.value;$('#zv').textContent=C.zoom+'%';save()});
 $('#auto').addEventListener('click',function(){C.auto=!C.auto;this.classList.toggle('on',C.auto);save()});
 $('#eco').classList.toggle('on',!!C.eco);
+if(C.sound===undefined)C.sound=true;$('#snd').classList.toggle('on',!!C.sound);
+$('#snd').addEventListener('click',function(){C.sound=!C.sound;this.classList.toggle('on',C.sound);save();if(C.sound)soundReady()});
 $('#eco').addEventListener('click',function(){C.eco=!C.eco;this.classList.toggle('on',C.eco);save()});
 $('#mode').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;C.mode=b.dataset.m;save();modeUI();if(C.mode==='tor'&&N.connect)N.connect()});
 function conn(on){$('#conn').classList.toggle('on',on)}
@@ -282,12 +301,12 @@ function connUI(tag,stage,no,cnt){$('#cpct').textContent=torPct+'%';$('#cring').
   if(stage)$('#cstage').textContent='Ko‘prik: '+stage+(cnt>1?' ('+no+'/'+cnt+')':'');if(torReady){$('#ctitle').textContent='Ulandi!';$('#ctxt').textContent='Instagram ochilmoqda…'}}
 $('#cancel').addEventListener('click',function(){conn(false);$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';if(N.cancel)N.cancel()});
 window.onTor=function(p,tag,stage,no,cnt){torPct=p;connUI(tag,stage,no,cnt);$('#ptxt').textContent=(TAGS[tag]||'Ulanmoqda')+'…';if(stage)$('#pstage').textContent=stage+(cnt>1?' ('+no+'/'+cnt+')':'');prog();baseStatus();if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+p+'%'};
-window.onTorReady=function(){torReady=true;torPct=100;prog();baseStatus();connUI()};
+window.onTorReady=function(){ready1();torReady=true;torPct=100;prog();baseStatus();connUI()};
 window.onPx=function(t,tot,f){if(C.mode!=='auto')return;if(!torReady)torPct=f>0?99:Math.min(95,Math.round(t*95/Math.max(tot,1)));
   var txt=f>0?f+' ta ishlaydigan proksi topildi':'Ishlaydigan proksi qidirilmoqda';var st=t+' / '+tot+' tekshirildi';
   $('#ptxt').textContent=txt+'…';$('#pspan').textContent=st;$('#cstage').textContent=st;connUI();$('#ctxt').textContent=torReady?'Instagram ochilmoqda…':txt;prog();baseStatus();
   if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+torPct+'%'};
-window.onPxReady=function(){torReady=true;torPct=100;$('#ptxt').textContent='Proksi topildi';prog();baseStatus();connUI()};
+window.onPxReady=function(){ready1();torReady=true;torPct=100;$('#ptxt').textContent='Proksi topildi';prog();baseStatus();connUI()};
 window.onPxSwitch=function(hst){if(hst)toast('Boshqa proksiga o‘tildi',true)};
 window.onTorWarn=function(m){toast(m)};
 $('#br').value=C.bridges||'';
