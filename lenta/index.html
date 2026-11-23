@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Lenta — Instagram VPN’siz, bepul</title>
+<meta name="description" content="Lenta — Android uchun bepul ilova: instagram.com saytini VPN’siz, ichiga o‘rnatilgan Tor orqali ochadi. 6 ta rang mavzusi, tejamkor rejim.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+@font-face{font-family:AB;src:url(ArchivoBlack-0.woff2) format("woff2");font-display:swap}
+@font-face{font-family:IN;src:url(Inter-1.woff2) format("woff2");font-weight:400 700;font-display:swap}
+@font-face{font-family:SG;src:url(SpaceGrotesk-2.woff2) format("woff2");font-weight:500 700;font-display:swap}
+:root{--bg:#000;--s1:#0F0F11;--s2:#17171A;--line:#232327;--tx:#F5F5F5;--tx2:#C9C9CF;--mu:#8E8E96;--ac:#F7A70B;--ln:#FFC94D;--e:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font:500 16px/1.55 IN,system-ui,sans-serif;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,.g{font-family:SG,IN,sans-serif;letter-spacing:-.02em}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* fon */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
+.bg i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.35;animation:drift 16s ease-in-out infinite alternate}
+.bg i:nth-child(1){width:480px;height:480px;background:var(--ac);top:-180px;right:-120px}
+.bg i:nth-child(2){width:380px;height:380px;background:#A855F7;top:40%;left:-180px;opacity:.18;animation-delay:-6s}
+.bg i:nth-child(3){width:300px;height:300px;background:#22D3EE;bottom:-120px;right:10%;opacity:.12;animation-delay:-10s}
+@keyframes drift{to{transform:translate(-60px,80px) scale(1.2)}}
+
+/* header */
+header{position:sticky;top:0;z-index:20;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(0,0,0,.6);border-bottom:1px solid rgba(255,255,255,.06)}
+.hrow{display:flex;align-items:center;gap:12px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font:400 22px AB;letter-spacing:-.03em}
+.brand img{width:36px;height:36px;border-radius:10px}
+.lang{margin-left:auto;display:flex;padding:3px;border-radius:12px;background:var(--s1);border:1px solid var(--line)}
+.lang button{border:0;background:none;color:var(--mu);font:700 13px IN;height:34px;min-width:44px;border-radius:9px;cursor:pointer}
+.lang button.on{background:var(--s2);color:var(--tx)}
+.hbtn{white-space:nowrap}
+
+
+/* tugmalar */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:56px;padding:0 26px;border-radius:17px;font-weight:700;font-size:16px;position:relative;overflow:hidden;transition:transform .15s}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:linear-gradient(135deg,var(--ac),var(--ln));color:#0B0B0B;box-shadow:0 14px 40px rgba(247,167,11,.3)}
+.btn.pri::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-100%);animation:shine 3.4s ease-in-out infinite}
+@keyframes shine{0%,60%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.btn.sm{height:42px;padding:0 16px;border-radius:13px;font-size:14px}
+.btn.ghost{background:var(--s1);border:1px solid var(--line);color:var(--tx)}
+
+/* hero */
+.hero{display:grid;gap:40px;align-items:center;padding:48px 0 30px}
+@media(min-width:900px){.hero{grid-template-columns:1.1fr .9fr;padding:80px 0 50px}}
+.badge{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:99px;background:var(--s1);border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--tx2)}
+.badge i{width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:ping 1.8s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 8px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+.hero h1{font-size:clamp(40px,9vw,72px);line-height:1;margin:18px 0}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--ac),var(--ln));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:18px;color:var(--tx2);max-width:520px}
+.dl{display:flex;flex-direction:column;gap:12px;margin-top:28px;max-width:440px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 16px;color:var(--mu);font-size:13px}
+.meta b{color:var(--tx2);font-weight:600}
+.rev{opacity:0;transform:translateY(26px);transition:opacity .8s var(--e),transform .8s var(--e)}
+.rev.in{opacity:1;transform:none}
+
+/* telefon */
+.phone-wrap{display:flex;justify-content:center;perspective:1200px}
+.phone{width:270px;height:560px;border-radius:44px;background:#050505;border:9px solid #1c1c20;box-shadow:0 50px 120px rgba(0,0,0,.8),0 0 0 1px #2c2c32,0 0 80px color-mix(in srgb,var(--pc) 30%,transparent);padding:14px 12px;display:flex;flex-direction:column;gap:12px;transform:rotateY(-14deg) rotateX(6deg);animation:float 6s ease-in-out infinite alternate;transition:box-shadow .8s;--pc:#F7A70B;--pb:#000;--ps:#111}
+@keyframes float{to{transform:rotateY(-6deg) rotateX(2deg) translateY(-14px)}}
+.phone .top{display:flex;align-items:center;justify-content:space-between;font:700 15px SG}
+.phone .top span{width:60px;height:8px;border-radius:5px;background:var(--ps);transition:background .8s}
+.phone .stories{display:flex;gap:9px}
+.phone .stories i{width:44px;height:44px;border-radius:50%;border:2.5px solid var(--pc);background:var(--ps);transition:all .8s}
+.phone .post{flex:1;border-radius:18px;background:linear-gradient(150deg,var(--ps),color-mix(in srgb,var(--pc) 35%,#000));transition:background .8s;position:relative;overflow:hidden}
+.phone .post::after{content:"";position:absolute;width:120px;height:120px;border-radius:50%;background:var(--pc);opacity:.35;filter:blur(30px);right:-20px;bottom:-30px;transition:background .8s}
+.phone .row{display:flex;gap:10px;align-items:center}
+.phone .row i{width:22px;height:22px;border-radius:7px;background:var(--ps);transition:background .8s}
+.phone .row b{margin-left:auto;height:26px;width:84px;border-radius:9px;background:var(--pc);transition:background .8s}
+.phone .ln{height:8px;border-radius:5px;background:var(--ps);transition:background .8s}.phone .ln.s{width:60%}
+.phone .nav{display:flex;justify-content:space-around;padding-top:6px}
+.phone .nav i{width:22px;height:22px;border-radius:7px;background:var(--ps);transition:background .8s}.phone .nav i:nth-child(3){background:var(--pc)}
+.dots{display:flex;gap:8px;justify-content:center;margin-top:22px}
+.dots button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .3s,border-color .3s}
+.dots button.on{border-color:#fff;transform:scale(1.15)}
+
+/* bo'limlar */
+section{padding:56px 0}
+.sh{text-align:center;max-width:640px;margin:0 auto 34px}
+.sh h2{font-size:clamp(28px,5vw,42px);line-height:1.1}
+.sh p{color:var(--tx2);margin-top:10px}
+.grid{display:grid;gap:14px}
+@media(min-width:700px){.grid.c2{grid-template-columns:1fr 1fr}.grid.c4{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.grid.c4{grid-template-columns:repeat(4,1fr)}}
+.f{padding:22px;border-radius:24px;background:rgba(15,15,17,.8);border:1px solid var(--line);transition:transform .3s var(--e),border-color .3s}
+.f:hover{transform:translateY(-4px);border-color:#3a3a40}
+.f .ic{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:rgba(247,167,11,.12);color:var(--ln);margin-bottom:14px}
+.f h3{font-size:19px;margin-bottom:6px}.f p{color:var(--tx2);font-size:14.5px}
+.steps{counter-reset:s;display:grid;gap:12px;max-width:720px;margin:0 auto}
+.step{display:flex;gap:16px;align-items:flex-start;padding:18px;border-radius:20px;background:rgba(15,15,17,.8);border:1px solid var(--line)}
+.step::before{counter-increment:s;content:counter(s);flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font:700 17px SG;color:#0B0B0B;background:linear-gradient(135deg,var(--ac),var(--ln))}
+.step b{display:block;margin-bottom:2px}.step span{color:var(--tx2);font-size:14.5px}
+.faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.faq details{border-radius:18px;background:rgba(15,15,17,.8);border:1px solid var(--line);overflow:hidden}
+.faq summary{list-style:none;cursor:pointer;padding:18px 20px;font-weight:600;display:flex;gap:12px;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";margin-left:auto;font:400 24px SG;color:var(--ln);transition:transform .3s}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{padding:0 20px 18px;color:var(--tx2);font-size:15px}
+.cta{text-align:center;padding:44px 22px;border-radius:30px;background:radial-gradient(600px 300px at 50% 0,rgba(247,167,11,.25),transparent 70%),var(--s1);border:1px solid var(--line)}
+.cta h2{font-size:clamp(28px,5vw,40px);margin-bottom:10px}.cta p{color:var(--tx2);margin-bottom:24px}
+.sha{font:12px ui-monospace,Menlo,monospace;color:var(--mu);word-break:break-all;margin-top:14px}
+footer{padding:30px 0 50px;color:var(--mu);font-size:13px;text-align:center;line-height:1.7}
+footer a{color:var(--tx2);text-decoration:underline}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rev{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="bg"><i></i><i></i><i></i></div>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="dl" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="pal" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.5-2-.4-1.3.4-2.5 1.8-2.5H17a4 4 0 0 0 4-4C21 7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7.3" r="1.2"/><circle cx="15" cy="7.8" r="1.2"/></symbol>
+<symbol id="bolt" viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+</defs></svg>
+
+<header><div class="wrap hrow">
+  <a class="brand" href="#top"><img src="logo.svg" alt="">Lenta</a>
+  <div class="lang"><button data-l="uz" class="on">UZ</button><button data-l="ru">RU</button></div>
+  <a class="btn pri sm hbtn" href="Lenta.apk" download><svg class="i"><use href="#dl"/></svg><span data-t="dl_short">Yuklab olish</span></a>
+</div></header>
+
+<main class="wrap" id="top">
+  <div class="hero">
+    <div class="rev">
+      <span class="badge"><i></i><span data-t="badge">Bepul · Android · v2.0</span></span>
+      <h1 data-t="h1" data-html>Instagram<br><em>VPN’siz</em></h1>
+      <p class="lead" data-t="lead">Lenta — rasmiy instagram.com saytini ichiga o‘rnatilgan Tor orqali ochadigan ilova. Server ham, VPN ham kerak emas. O‘zingiz yoqtirgan rangda.</p>
+      <div class="dl">
+        <a class="btn pri" href="Lenta.apk" download><svg class="i"><use href="#dl"/></svg><span data-t="dl">Android uchun yuklab olish</span></a>
+        <div class="meta"><span><b>v2.0</b></span><span><b>25.0 MB</b></span><span data-t="date">23.11.2026</span><span data-t="req">Android 7.0 va undan yuqori</span></div>
+      </div>
+    </div>
+    <div class="rev">
+      <div class="phone-wrap"><div class="phone" id="ph">
+        <div class="top">Lenta<span></span></div>
+        <div class="stories"><i></i><i></i><i></i><i></i></div>
+        <div class="post"></div>
+        <div class="row"><i></i><i></i><i></i><b></b></div>
+        <div class="ln"></div><div class="ln s"></div>
+        <div class="nav"><i></i><i></i><i></i><i></i><i></i></div>
+      </div></div>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+
+  <section id="imk">
+    <div class="sh rev"><h2 data-t="f_h">Nimasi yaxshi</h2><p data-t="f_p">Odatdagi Instagram — faqat VPN’siz va chiroyliroq.</p></div>
+    <div class="grid c4">
+      <div class="f rev"><div class="ic"><svg class="i"><use href="#shield"/></svg></div><h3 data-t="f1h">VPN’siz, bepul</h3><p data-t="f1p">Ichida Tor va Rossiya uchun tavsiya etilgan ko‘priklar bor. Hech narsa sozlash shart emas.</p></div>
+      <div class="f rev"><div class="ic"><svg class="i"><use href="#pal"/></svg></div><h3 data-t="f2h">6 ta mavzu</h3><p data-t="f2p">Oltin, Binafsha, Okean, Atirgul, Yalpiz yoki Asl — Instagram’ning o‘zi rangini almashtiradi.</p></div>
+      <div class="f rev"><div class="ic"><svg class="i"><use href="#bolt"/></svg></div><h3 data-t="f3h">Tejamkor rejim</h3><p data-t="f3p">Videolar o‘zi qo‘yilmaydi — lenta tezroq ochiladi, internet kamroq sarflanadi.</p></div>
+      <div class="f rev"><div class="ic"><svg class="i"><use href="#lock"/></svg></div><h3 data-t="f4h">Akkauntingiz xavfsiz</h3><p data-t="f4p">Kirish rasmiy instagram.com sahifasida. Parolingiz faqat Instagram’ga boradi, ilova uni saqlamaydi.</p></div>
+    </div>
+  </section>
+
+  <section id="ornatish">
+    <div class="sh rev"><h2 data-t="s_h">Qanday o‘rnatiladi</h2><p data-t="s_p">1 daqiqa vaqt oladi.</p></div>
+    <div class="steps">
+      <div class="step rev"><div><b data-t="s1b">APK’ni yuklab oling</b><span data-t="s1s">Yuqoridagi tugmani bosing — fayl telefoningizga tushadi.</span></div></div>
+      <div class="step rev"><div><b data-t="s2b">Faylni oching</b><span data-t="s2s">Telefon «noma’lum manbadan o‘rnatish»ga ruxsat so‘raydi — ruxsat bering.</span></div></div>
+      <div class="step rev"><div><b data-t="s3b">Play Protect ogohlantirsa</b><span data-t="s3s">«Baribir o‘rnatish»ni tanlang. Ilova Play Market’dan bo‘lmagani uchun shunday so‘raydi.</span></div></div>
+      <div class="step rev"><div><b data-t="s4b">Oching va kuting</b><span data-t="s4s">Birinchi marta ulanish 30–90 soniya oladi. Foiz 100% bo‘lgach «Ochish»ni bosing va akkauntingizga kiring.</span></div></div>
+    </div>
+  </section>
+
+  <section id="savollar">
+    <div class="sh rev"><h2 data-t="q_h">Savollar</h2></div>
+    <div class="faq">
+      <details class="rev"><summary data-t="q1">Nega oddiy Instagram’dan sekinroq?</summary><p data-t="a1">Trafik bir necha davlatdagi Tor serverlari orqali shifrlanib o‘tadi — shuning uchun blok ko‘rmaydi, lekin tezlik kamroq. Tejamkor rejimni yoqing: rasmlar va lenta ancha tez ochiladi.</p></details>
+      <details class="rev"><summary data-t="q2">Instagram «shubhali kirish» deyapti</summary><p data-t="a2">Bu normal: siz boshqa davlat IP manzilidan kiryapsiz. Telefon yoki pochtangizga kelgan kodni kiriting. Ilova Instagram uchun bir xil IP’ni saqlashga harakat qiladi, shuning uchun keyin kamroq so‘raydi.</p></details>
+      <details class="rev"><summary data-t="q3">Ulanish 100% ga yetmayapti</summary><p data-t="a3">Wi-Fi va mobil internet o‘rtasida almashtirib ko‘ring yoki ilovani yopib, qayta oching. Ba’zi provayderlar ko‘priklarni vaqtincha to‘sadi.</p></details>
+      <details class="rev"><summary data-t="q4">iPhone’da ishlaydimi?</summary><p data-t="a4">Hozircha yo‘q — faqat Android.</p></details>
+      <details class="rev"><summary data-t="q5">Bu rasmiy Instagram ilovasimi?</summary><p data-t="a5">Yo‘q. Lenta — rasmiy instagram.com saytini ochuvchi mustaqil ilova. Instagram yoki Meta bilan bog‘liq emas.</p></details>
+    </div>
+  </section>
+
+  <section>
+    <div class="cta rev">
+      <h2 data-t="c_h">Hoziroq sinab ko‘ring</h2>
+      <p data-t="c_p">Bepul. Ro‘yxatdan o‘tish yo‘q. Reklama yo‘q.</p>
+      <a class="btn pri" href="Lenta.apk" download><svg class="i"><use href="#dl"/></svg><span data-t="dl">Android uchun yuklab olish</span></a>
+      <div class="sha">SHA-256: f375d261fb174850477076d79ca9b23325f74dd24e5d7a6512bd7dd3745d8ed3</div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span data-t="foot">Lenta — Instagram yoki Meta bilan bog‘liq bo‘lmagan mustaqil ilova. Instagram — Meta Platforms, Inc. savdo belgisi.</span><br>
+  <a href="../">tashlanov.ru</a> · <a href="../abugram/">Abugram</a>
+</footer>
+
+<script>
+(function(){
+var T={ru:{
+ dl_short:'Скачать',badge:'Бесплатно · Android · v2.0',h1:'Instagram<br><em>без VPN</em>',
+ lead:'Lenta — приложение, которое открывает официальный сайт instagram.com через встроенный Tor. Не нужен ни сервер, ни VPN. В том цвете, который вам нравится.',
+ dl:'Скачать для Android',date:'23.11.2026',req:'Android 7.0 и выше',
+ f_h:'Чем хорош',f_p:'Обычный Instagram — только без VPN и красивее.',
+ f1h:'Без VPN, бесплатно',f1p:'Внутри Tor и мосты, рекомендованные для России. Ничего настраивать не нужно.',
+ f2h:'6 тем',f2p:'Золото, Фиолет, Океан, Роза, Мята или Оригинал — меняет цвета самого Instagram.',
+ f3h:'Экономный режим',f3p:'Видео не запускаются сами — лента открывается быстрее, трафика меньше.',
+ f4h:'Аккаунт в безопасности',f4p:'Вход на официальной странице instagram.com. Пароль уходит только в Instagram, приложение его не хранит.',
+ s_h:'Как установить',s_p:'Займёт 1 минуту.',
+ s1b:'Скачайте APK',s1s:'Нажмите кнопку выше — файл загрузится на телефон.',
+ s2b:'Откройте файл',s2s:'Телефон попросит разрешить установку из неизвестных источников — разрешите.',
+ s3b:'Если Play Protect предупреждает',s3s:'Выберите «Всё равно установить». Так бывает, потому что приложение не из Play Маркета.',
+ s4b:'Откройте и подождите',s4s:'Первое подключение занимает 30–90 секунд. Когда будет 100%, нажмите «Ochish» (Открыть) и войдите в аккаунт.',
+ q_h:'Вопросы',
+ q1:'Почему медленнее обычного Instagram?',a1:'Трафик идёт в зашифрованном виде через серверы Tor в разных странах — поэтому блокировка его не видит, но скорость ниже. Включите экономный режим: фото и лента открываются заметно быстрее.',
+ q2:'Instagram пишет «подозрительный вход»',a2:'Это нормально: вы входите с IP другой страны. Введите код из SMS или почты. Приложение старается держать один IP для Instagram, поэтому дальше спрашивает реже.',
+ q3:'Подключение не доходит до 100%',a3:'Переключитесь между Wi-Fi и мобильным интернетом или закройте и снова откройте приложение. Некоторые провайдеры временно блокируют мосты.',
+ q4:'Работает на iPhone?',a4:'Пока нет — только Android.',
+ q5:'Это официальное приложение Instagram?',a5:'Нет. Lenta — независимое приложение, которое открывает официальный сайт instagram.com. Не связано с Instagram или Meta.',
+ c_h:'Попробуйте прямо сейчас',c_p:'Бесплатно. Без регистрации. Без рекламы.',
+ foot:'Lenta — независимое приложение, не связанное с Instagram или Meta. Instagram — товарный знак Meta Platforms, Inc.'}};
+var els=[].slice.call(document.querySelectorAll('[data-t]'));
+els.forEach(function(e){e.dataset.uz=e.hasAttribute('data-html')?e.innerHTML:e.textContent});
+function setLang(l){document.documentElement.lang=l;
+  els.forEach(function(e){var v=l==='uz'?e.dataset.uz:(T[l][e.dataset.t]||e.dataset.uz);if(e.hasAttribute('data-html'))e.innerHTML=v;else e.textContent=v});
+  [].forEach.call(document.querySelectorAll('.lang button'),function(b){b.classList.toggle('on',b.dataset.l===l)});
+  try{localStorage.setItem('lenta_lang',l)}catch(e){}}
+document.querySelector('.lang').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setLang(b.dataset.l)});
+var saved=null;try{saved=localStorage.getItem('lenta_lang')}catch(e){}
+if(saved==='ru'||(!saved&&/^(ru|be|kk)/i.test(navigator.language||'')))setLang('ru');
+
+// telefon ranglari
+var TH=[['#F7A70B','#000','#141416'],['#A855F7','#07050D','#191128'],['#22D3EE','#03101A','#0F2335'],['#FB7185','#0D0507','#231017'],['#34D399','#020D09','#0D2117'],['#0095F6','#000','#121212']];
+var ph=document.getElementById('ph'),dots=document.getElementById('dots'),k=0,timer;
+dots.innerHTML=TH.map(function(t,i){return '<button aria-label="'+(i+1)+'" style="background:'+t[0]+'"></button>'}).join('');
+function th(i){k=i;var t=TH[i];ph.style.setProperty('--pc',t[0]);ph.style.setProperty('--pb',t[1]);ph.style.setProperty('--ps',t[2]);ph.style.background=t[1];
+  [].forEach.call(dots.children,function(d,j){d.classList.toggle('on',j===i)})}
+dots.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;clearInterval(timer);th([].indexOf.call(dots.children,b))});
+th(0);timer=setInterval(function(){th((k+1)%TH.length)},2600);
+
+// paydo bo'lish animatsiyasi
+var io='IntersectionObserver' in window?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.12}):null;
+[].forEach.call(document.querySelectorAll('.rev'),function(e,i){if(io){e.style.transitionDelay=(i<2?i*.12:0)+'s';io.observe(e)}else e.classList.add('in')});
+})();
+</script>
+</body>
+</html>
