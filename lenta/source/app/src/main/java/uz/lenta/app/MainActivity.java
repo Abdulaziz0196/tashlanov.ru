@@ -124,7 +124,7 @@ public class MainActivity extends Activity {
                 o.put("pass", sp.getString("pass", ""));
                 o.put("theme", sp.getString("theme", "gold"));
                 o.put("zoom", sp.getInt("zoom", 100));
-                o.put("auto", sp.getBoolean("auto", false));
+                o.put("auto", sp.getBoolean("auto", true));
                 o.put("mode", mode());
                 o.put("eco", sp.getBoolean("eco", true));
                 o.put("torReady", tor != null && tor.isReady());
@@ -144,7 +144,7 @@ public class MainActivity extends Activity {
                         .putString("pass", o.optString("pass", ""))
                         .putString("theme", o.optString("theme", "gold"))
                         .putInt("zoom", Math.max(80, Math.min(140, o.optInt("zoom", 100))))
-                        .putBoolean("auto", o.optBoolean("auto", false))
+                        .putBoolean("auto", o.optBoolean("auto", true))
                         .putString("mode", o.optString("mode", "tor"))
                         .putBoolean("eco", o.optBoolean("eco", true))
                         .apply();
@@ -170,6 +170,9 @@ public class MainActivity extends Activity {
             ui.post(() -> tor.reloadBridges());
             return n;
         }
+
+        @JavascriptInterface
+        public void cancel() { ui.post(() -> pendingOpen = false); }
 
         @JavascriptInterface
         public void nextBridge() { ui.post(() -> tor.nextStage()); }

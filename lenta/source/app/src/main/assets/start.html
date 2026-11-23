@@ -112,6 +112,25 @@ details.help code{background:var(--bg);padding:1px 6px;border-radius:6px;font-si
 .pst b{color:var(--ln);font-weight:600}
 .pst button{margin-left:auto;height:30px;padding:0 11px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:12px;font-weight:700;color:var(--tx)}
 textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-monospace,Menlo,monospace}
+.more{flex:none}
+.more summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:14px;color:var(--mu);font-size:13.5px;font-weight:600}
+.more summary::-webkit-details-marker{display:none}
+.more summary svg{width:16px;height:16px;transform:rotate(90deg);transition:transform .3s}
+.more[open] summary svg{transform:rotate(-90deg)}
+.morein{display:flex;flex-direction:column;gap:16px;padding-top:6px}
+#conn{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:30px;text-align:center;opacity:0;pointer-events:none;transition:opacity .4s}
+#conn.on{opacity:1;pointer-events:auto}
+.ring{position:relative;width:180px;height:180px}
+.ring svg{width:180px;height:180px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:10;stroke-linecap:round}
+.ring .bgc{stroke:var(--line)}
+.ring .fg{stroke:url(#gA);stroke-dasharray:502;stroke-dashoffset:502;transition:stroke-dashoffset .8s var(--e)}
+.ring .spin{position:absolute;inset:-8px;border-radius:50%;border:2px solid transparent;border-top-color:var(--ac);animation:spin 1.4s linear infinite}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 44px "Space Grotesk"}
+#conn h2{font-size:22px}
+#conn p{color:var(--mu);font-size:14px;max-width:290px}
+#conn .cs{color:var(--ln);font-size:13px;font-weight:600}
+#cancel{height:44px;padding:0 22px;border-radius:13px;background:var(--s1);border:1px solid var(--line);font-weight:600;font-size:14px;color:var(--tx2)}
 .foot{text-align:center;color:var(--mu);font-size:11.5px;line-height:1.5}
 .toast{position:fixed;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));z-index:30;padding:13px 15px;border-radius:15px;background:#2A0E0E;border:1px solid #4A1D1D;color:#FECACA;font-size:13.5px;font-weight:600;display:flex;gap:10px;align-items:flex-start;transform:translateY(-140%);transition:transform .5s var(--sp)}
 .toast.on{transform:none}
@@ -149,7 +168,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
     <div class="phone"><div class="sr"><i></i><i></i><i></i></div><div class="pic"></div><div class="ln"></div><div class="ln s"></div><div class="bt"></div></div>
     <h1>Instagram<br>VPN’siz</h1>
     <p>Rasmiy instagram.com sayti — bepul, server kerak emas va o‘zingiz tanlagan rangda.</p>
-    <div class="prog" id="prog" hidden><div class="bar"><i id="pbar"></i></div><small><span id="ptxt">Tor ishga tushmoqda…</span><b id="ppct">0%</b></small><div class="pst" id="pst"><span>Ko‘prik: <b id="pstage">—</b></span><button id="nextb">Boshqa ko‘prik</button></div></div>
+    <div class="prog" id="prog" hidden><div class="bar"><i id="pbar"></i></div><small><span id="ptxt">Tor ishga tushmoqda…</span><b id="ppct">0%</b></small><div class="pst" id="pst"><span>Ko‘prik: <b id="pstage">—</b></span></div></div>
     <button class="go" id="go"><span>Ochish</span><svg class="i"><use href="#i-go"/></svg></button>
   </div>
 
@@ -158,6 +177,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
     <div class="themes" id="themes"></div>
   </div>
 
+  <details class="more"><summary>Qo‘shimcha sozlamalar<svg class="i"><use href="#i-chev"/></svg></summary><div class="morein">
   <div class="card">
     <div class="ch"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><h2>Ulanish usuli</h2></div>
     <div class="seg" id="mode"><button data-m="tor">Bepul (Tor)</button><button data-m="proxy">O‘z proksim</button><button data-m="direct">To‘g‘ridan</button></div>
@@ -194,9 +214,18 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
     <div class="sw"><div>Darhol ochilsin<small>Ilova ishga tushganda shu sahifani o‘tkazib yuborish</small></div><button class="tg" id="auto" aria-label="Darhol ochilsin"></button></div>
   </div>
 
+  </div></details>
   <p class="foot">Lenta — instagram.com saytini ochuvchi mustaqil ilova.<br>Instagram bilan bog‘liq emas. Parolingiz faqat instagram.com’ga yuboriladi.</p>
 </main>
 
+<section id="conn" aria-live="polite">
+  <div class="ring"><svg viewBox="0 0 180 180"><circle class="bgc" cx="90" cy="90" r="80"/><circle class="fg" id="cring" cx="90" cy="90" r="80"/></svg><i class="spin"></i><b id="cpct">0%</b></div>
+  <h2 id="ctitle">Ulanmoqda…</h2>
+  <p id="ctxt">Tor ishga tushmoqda</p>
+  <div class="cs" id="cstage"></div>
+  <p>Birinchi marta 1–2 daqiqa olishi mumkin. Tayyor bo‘lishi bilan Instagram o‘zi ochiladi.</p>
+  <button id="cancel">Bekor qilish</button>
+</section>
 <div class="toast" id="toast"><svg class="i"><use href="#i-warn"/></svg><span></span></div>
 
 <script>
@@ -204,19 +233,19 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var N=window.Native||{ // brauzerda sinash uchun
-  _c:{proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:false,proxyOk:true,mode:'tor',eco:true,torReady:false},
+  _c:{proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'tor',eco:true,torReady:false},
   setBridges:function(t){return (t.match(/^(webtunnel|obfs4|snowflake|meek_lite) /gm)||[]).length},nextBridge:function(){},
-  connect:function(){if(this._t)return;var p=0,tags=['conn_pt','handshake','loading_status','loading_descriptors','circuit_create','done'];this._t=setInterval(function(){p=Math.min(100,p+Math.ceil(Math.random()*14));window.onTor(p,tags[Math.min(5,Math.floor(p/20))],'WebTunnel',1,4);if(p>=100){clearInterval(N._t);window.onTorReady()}},300)},
+  connect:function(){if(this._t)return;var p=0,tags=['conn_pt','handshake','loading_status','loading_descriptors','circuit_create','done'];this._t=setInterval(function(){p=Math.min(100,p+Math.ceil(Math.random()*14));window.onTor(p,tags[Math.min(5,Math.floor(p/20))],'WebTunnel',1,4);if(p>=100){clearInterval(N._t);N._ready=true;window.onTorReady()}},300)},
   config:function(){return JSON.stringify(this._c)},save:function(j){this._c=JSON.parse(j)},
   test:function(p){setTimeout(function(){window.onTest('err:Javob yo‘q (vaqt tugadi)',p?'ok:184':'none')},900)},
-  open:function(){setTimeout(function(){window.onErr('Brauzer rejimi: Instagram faqat telefonda ochiladi')},800)}};
+  open:function(){if(!this._ready){window.onWait();this.connect();return}setTimeout(function(){window.onErr('Brauzer rejimi: Instagram faqat telefonda ochiladi')},800)}};
 var TH=[['orig','Asl','#000','#0095F6','#4CB5F9','#121212','#262626'],['gold','Oltin','#000','#F7A70B','#FFC94D','#0F0F11','#232327'],['violet','Binafsha','#07050D','#A855F7','#C084FC','#120D1F','#2A1F40'],
   ['ocean','Okean','#03101A','#22D3EE','#67E8F9','#0A1B2A','#17344C'],['rose','Atirgul','#0D0507','#FB7185','#FDA4AF','#1A0B10','#3B1B24'],['mint','Yalpiz','#020D09','#34D399','#6EE7B7','#08190F','#15352A']];
 var C;try{C=JSON.parse(N.config())}catch(e){C={proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:false,proxyOk:true,mode:'tor',eco:true}}
 C.mode=C.mode||'tor';if(C.eco===undefined)C.eco=true;
 var torPct=C.torReady?100:0,torReady=!!C.torReady;
 var TAGS={starting:'Tor ishga tushmoqda',conn_pt:'Ko‘prikka ulanmoqda',conn_done_pt:'Ko‘prikka ulandi',conn_pr:'Ko‘prikka ulanmoqda',conn:'Ko‘prikka ulanmoqda',conn_done:'Ko‘prikka ulandi',handshake:'Shifrlangan aloqa o‘rnatilmoqda',onehop_create:'Tarmoqqa ulanmoqda',requesting_status:'Tarmoq ma’lumoti so‘ralmoqda',loading_status:'Tarmoq ma’lumoti yuklanmoqda',loading_keys:'Kalitlar yuklanmoqda',requesting_descriptors:'Tugunlar so‘ralmoqda',loading_descriptors:'Tugunlar yuklanmoqda',enough_dirinfo:'Zanjir qurilmoqda',ap_conn:'Zanjir qurilmoqda',ap_conn_done:'Zanjir qurilmoqda',ap_handshake:'Zanjir qurilmoqda',ap_handshake_done:'Zanjir qurilmoqda',circuit_create:'Zanjir qurilmoqda',done:'Tayyor'};
-function prog(){var on=C.mode==='tor',pg=$('#prog');pg.hidden=!on;if(!on)return;$('#nextb').hidden=torReady;
+function prog(){var on=C.mode==='tor',pg=$('#prog');pg.hidden=!on;if(!on)return;
   $('#pbar').style.width=Math.max(4,torPct)+'%';$('#ppct').textContent=torPct+'%';pg.classList.toggle('done',torReady);if(torReady)$('#ptxt').textContent='Ulandi — ochishingiz mumkin'}
 function modeUI(){[].forEach.call(document.querySelectorAll('#mode button'),function(b){b.classList.toggle('on',b.dataset.m===C.mode)});
   $('#pxbox').style.display=C.mode==='proxy'?'flex':'none';$('#brbox').style.display=C.mode==='tor'?'flex':'none';$('#n-tor').hidden=C.mode!=='tor';$('#n-direct').hidden=C.mode!=='direct';prog();baseStatus()}
@@ -244,14 +273,18 @@ $('#auto').addEventListener('click',function(){C.auto=!C.auto;this.classList.tog
 $('#eco').classList.toggle('on',!!C.eco);
 $('#eco').addEventListener('click',function(){C.eco=!C.eco;this.classList.toggle('on',C.eco);save()});
 $('#mode').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;C.mode=b.dataset.m;save();modeUI();if(C.mode==='tor'&&N.connect)N.connect()});
-window.onTor=function(p,tag,stage,no,cnt){torPct=p;$('#ptxt').textContent=(TAGS[tag]||'Ulanmoqda')+'…';if(stage)$('#pstage').textContent=stage+(cnt>1?' ('+no+'/'+cnt+')':'');prog();baseStatus();if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+p+'%'};
-window.onTorReady=function(){torReady=true;torPct=100;prog();baseStatus()};
+function conn(on){$('#conn').classList.toggle('on',on)}
+function connUI(tag,stage,no,cnt){$('#cpct').textContent=torPct+'%';$('#cring').style.strokeDashoffset=502-502*torPct/100;if(tag)$('#ctxt').textContent=(TAGS[tag]||'Ulanmoqda');
+  if(stage)$('#cstage').textContent='Ko‘prik: '+stage+(cnt>1?' ('+no+'/'+cnt+')':'');if(torReady){$('#ctitle').textContent='Ulandi!';$('#ctxt').textContent='Instagram ochilmoqda…'}}
+$('#cancel').addEventListener('click',function(){conn(false);$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';if(N.cancel)N.cancel()});
+window.onTor=function(p,tag,stage,no,cnt){torPct=p;connUI(tag,stage,no,cnt);$('#ptxt').textContent=(TAGS[tag]||'Ulanmoqda')+'…';if(stage)$('#pstage').textContent=stage+(cnt>1?' ('+no+'/'+cnt+')':'');prog();baseStatus();if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+p+'%'};
+window.onTorReady=function(){torReady=true;torPct=100;prog();baseStatus();connUI()};
 window.onTorWarn=function(m){toast(m)};
 $('#br').value=C.bridges||'';
 $('#brsave').addEventListener('click',function(){var n=N.setBridges?N.setBridges($('#br').value):0;C.bridges=$('#br').value;
   toast(n?n+' ta ko‘prik saqlandi — ulanmoqda':($('#br').value.trim()?'Ko‘prik topilmadi: qator webtunnel, obfs4 yoki snowflake bilan boshlanishi kerak':'O‘z ko‘priklaringiz o‘chirildi'),!!n||!$('#br').value.trim());if(N.connect)N.connect()});
-$('#nextb').addEventListener('click',function(){if(N.nextBridge)N.nextBridge();toast('Keyingi ko‘prikka o‘tilmoqda…',true)});
-window.onWait=function(){var g=$('#go');g.classList.add('busy','wait');g.querySelector('span').textContent='Ulanmoqda… '+torPct+'%'};
+
+window.onWait=function(){var g=$('#go');g.classList.add('busy','wait');g.querySelector('span').textContent='Ulanmoqda… '+torPct+'%';connUI();conn(true)};
 $('#test').addEventListener('click',function(){C.proxy=$('#px').value.trim();C.user=$('#pu').value.trim();C.pass=$('#pp').value;save();
   $('#res').innerHTML='<div class="rl mid">Tekshirilmoqda…<b>⋯</b></div>';N.test(C.proxy,C.user,C.pass)});
 function line(name,v){var cls,txt;
@@ -262,8 +295,8 @@ window.onTest=function(direct,via){
   $('#res').innerHTML=line('To‘g‘ridan-to‘g‘ri',direct.indexOf('ok:')===0?'ok:ochiq · '+direct.slice(3):direct)+line('Proksi orqali',via);
   if(via.indexOf('ok:')===0)status('ok','Proksi ishlayapti');else if(via.indexOf('err:')===0)status('bad','Proksi ishlamadi');
   if(direct.indexOf('ok:')===0&&via==='none')toast('Instagram sizda VPN’siz ham ochiq ekan — proksi shart emas',true)};
-window.onErr=function(m){$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';status('bad','Xato');toast(m)};
-window.onBack=function(){$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';baseStatus();showMain(false)};
+window.onErr=function(m){conn(false);$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';status('bad','Xato');toast(m)};
+window.onBack=function(){conn(false);$('#ctitle').textContent='Ulanmoqda…';$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';baseStatus();showMain(false)};
 $('#go').addEventListener('click',function(){C.proxy=$('#px').value.trim();C.user=$('#pu').value.trim();C.pass=$('#pp').value;save();this.classList.add('busy');setTimeout(function(){N.open()},250)});
 
 function showMain(anim){var m=$('#main');m.hidden=false;if(anim){m.classList.remove('in');void m.offsetWidth;m.classList.add('in')}}
