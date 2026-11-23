@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Abugram Admin</title>
+<title>Xabarchi Admin</title>
 <style>
 :root{--bg:#0f0f17;--card:#1b1b27;--line:#2c2c3c;--text:#f2f2f7;--muted:#a3a3b5;--accent:#6A5CFF;--accent2:#00D5FF;--ok:#34c759;--bad:#ff453a}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--line:#e3e3ea;--text:#14141c;--muted:#5d5d6e}}
@@ -25,7 +25,7 @@ button.danger{background:var(--bad)}
 img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;display:block}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px}.check input{width:auto}
 </style></head><body><main>
-<h1>Abugram Admin</h1>
+<h1>Xabarchi Admin</h1>
 <p class="sub">Reklamalar: qo'shish, o'zgartirish, statistika. Chatlar ro'yxati tepasida "Reklama" belgisi bilan chiqadi.</p>
 
 <div class="card" id="login">
@@ -79,13 +79,27 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   </div>
   <h2>Reklamalar</h2>
   <div id="list"></div>
+  <h2>Pullik rejim</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Hozir ilova bepul. Keyin pullik qilmoqchi bo'lsangiz, shu yerdan yoqasiz: eski versiyadagilarga ham ta'sir qiladi.</p>
+    <label class="check"><input type="checkbox" id="cPaid"> Pullik rejim yoqilgan (obunasi yo'q odam "Obuna kerak" ekranini ko'radi)</label>
+    <label for="cMin">Majburiy yangilash: eng kichik versiya raqami (0 = o'chiq)</label>
+    <input id="cMin" type="number" min="0" inputmode="numeric" placeholder="Masalan: 14">
+    <p class="ad-text" style="margin:6px 0 0">Bu raqamdan past versiyalar (Android) ulana olmaydi va "Yangilash kerak" deydi. Veb va yangi versiyalarga ta'sir qilmaydi.</p>
+    <label for="cUpdMsg">"Yangilash kerak" matni</label><input id="cUpdMsg" maxlength="300">
+    <label for="cPayMsg">"Obuna kerak" matni</label><input id="cPayMsg" maxlength="300">
+    <label for="cUrl">Tugma ochadigan havola (https://)</label><input id="cUrl" maxlength="300">
+    <div class="row" style="margin-top:14px"><button id="csave">Saqlash</button></div>
+    <div class="msg" id="cmsg"></div>
+  </div>
   <h2>Ruxsat berilganlar</h2>
-  <p class="sub">Shu ro'yxatdagilarda Sozlamalar ▸ Abugram ichida ko'rinmas rejim chiqadi; "Admin" belgisi bo'lsa, ilovada "Admin panel" tugmasi chiqadi. Telegram ID'ni Abugram'da profilda ko'rish mumkin (Sozlamalar ▸ Abugram ▸ ID ko'rsatish).</p>
+  <p class="sub">Shu ro'yxatdagilarda Sozlamalar ▸ Xabarchi ichida ko'rinmas rejim chiqadi; "Admin" belgisi bo'lsa, ilovada "Admin panel" tugmasi chiqadi. Telegram ID'ni Xabarchi'da profilda ko'rish mumkin (Sozlamalar ▸ Xabarchi ▸ ID ko'rsatish).</p>
   <div class="card">
     <label for="uid">Telegram ID</label><input id="uid" inputmode="numeric" placeholder="Masalan: 123456789">
     <label for="uname">Ism (o'zingiz uchun eslatma)</label><input id="uname" maxlength="80" placeholder="Masalan: Akam">
     <label class="check"><input type="checkbox" id="ughost" checked> Ko'rinmas rejim</label>
     <label class="check"><input type="checkbox" id="uadmin"> Admin</label>
+    <label for="udays">Obuna muddati (kun, bo'sh = o'zgartirmaslik, 0 = olib tashlash)</label><input id="udays" type="number" min="0" inputmode="numeric" placeholder="Masalan: 30">
     <div class="row" style="margin-top:14px"><button id="usave">Saqlash</button></div>
     <div class="msg" id="umsg"></div>
   </div>
@@ -102,7 +116,10 @@ function api(method,path,body){
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats(); }
+function loadConfig(){
+  api('GET','/admin/config').then(function(c){$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+}
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats();loadConfig(); }
 function loadStats(){
   var f=function(n){return (n||0).toLocaleString('ru-RU');};
   api('GET','/admin/stats').then(function(s){
@@ -117,7 +134,7 @@ function loadStats(){
     (s.versions||[]).forEach(function(v){var d=document.createElement('div');d.textContent=(v.platform==='web'?'Veb':'Android')+' '+v.version+' — '+f(v.n)+' odam';used.appendChild(d);});
     if(!(s.versions||[]).length)used.textContent='Hali ma\'lumot yo\'q.';
   }).catch(function(e){var tb=$('pt').querySelector('tbody');tb.innerHTML='';var tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent=e.message;tr.appendChild(td);tb.appendChild(tr);});
-  fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest').then(function(r){return r.json();}).then(function(r){$('vAndroid').textContent=(r.name||'?').replace(/^Abugram for Android\s*/,'')+' · '+(r.published_at||'').slice(0,10);}).catch(function(){$('vAndroid').textContent='?';});
+  fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest').then(function(r){return r.json();}).then(function(r){$('vAndroid').textContent=(r.name||'?').replace(/^(Xabarchi|Xabarchi) for Android\s*/,'')+' · '+(r.published_at||'').slice(0,10);}).catch(function(){$('vAndroid').textContent='?';});
   fetch('web/abugram-version.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(r){$('vWeb').textContent=r.version+' · '+(r.built||'').slice(0,10);}).catch(function(){$('vWeb').textContent='?';});
 }
 function loadUsers(){
@@ -132,6 +149,7 @@ function loadUsers(){
       var pills=c.querySelector('.row .row');
       if(u.ghost){var p1=document.createElement('span');p1.className='pill on';p1.textContent='Ko\'rinmas rejim';pills.appendChild(p1);}
       if(u.admin){var p2=document.createElement('span');p2.className='pill on';p2.textContent='Admin';pills.appendChild(p2);}
+      if(u.pro_until>Date.now()){var p3=document.createElement('span');p3.className='pill on';p3.textContent='Obuna: '+new Date(u.pro_until).toISOString().slice(0,10)+' gacha';pills.appendChild(p3);}
       c.querySelector('[data-a=edit]').onclick=function(){$('uid').value=u.uid;$('uname').value=u.name;$('ughost').checked=!!u.ghost;$('uadmin').checked=!!u.admin;$('uid').scrollIntoView({behavior:'smooth',block:'center'});};
       c.querySelector('[data-a=del]').onclick=function(){if(confirm('Ruxsat olib tashlansinmi?'))api('DELETE','/admin/access?uid='+u.uid).then(loadUsers);};
       list.appendChild(c);
@@ -170,11 +188,18 @@ $('save').onclick=function(){
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
 };
 $('reset').onclick=function(){fill(null);};
+$('csave').onclick=function(){
+  if($('cPaid').checked&&!confirm('Pullik rejim yoqilsinmi? Obunasi yo\'q odamlar "Obuna kerak" ekranini ko\'radi.'))return;
+  if(Number($('cMin').value)>0&&!confirm('Majburiy yangilash yoqilsinmi? Past versiyadagi Android ilovalar ulana olmaydi.'))return;
+  api('POST','/admin/config',{paid:$('cPaid').checked?1:0,minBuild:Number($('cMin').value)||0,updateMessage:$('cUpdMsg').value.trim(),payMessage:$('cPayMsg').value.trim(),url:$('cUrl').value.trim()})
+    .then(function(){msg($('cmsg'),'Saqlandi ✅ (ilovalar 1–2 daqiqada biladi)',true);}).catch(function(e){msg($('cmsg'),e.message);});
+};
 $('usave').onclick=function(){
   var uid=$('uid').value.replace(/\D/g,'');
   if(!uid){msg($('umsg'),'Telegram ID raqamini yozing');return;}
-  api('POST','/admin/access',{uid:Number(uid),name:$('uname').value.trim(),ghost:$('ughost').checked?1:0,admin:$('uadmin').checked?1:0})
-    .then(function(){msg($('umsg'),'Saqlandi ✅',true);$('uid').value='';$('uname').value='';loadUsers();}).catch(function(e){msg($('umsg'),e.message);});
+  var ub={uid:Number(uid),name:$('uname').value.trim(),ghost:$('ughost').checked?1:0,admin:$('uadmin').checked?1:0};if($('udays').value!=='')ub.proDays=Number($('udays').value);
+  api('POST','/admin/access',ub)
+    .then(function(){msg($('umsg'),'Saqlandi ✅',true);$('uid').value='';$('uname').value='';$('udays').value='';loadUsers();}).catch(function(e){msg($('umsg'),e.message);});
 };
 $('logout').onclick=function(){try{sessionStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
 if(pw){api('GET','/admin/ads').then(showPanel).catch(function(){});}

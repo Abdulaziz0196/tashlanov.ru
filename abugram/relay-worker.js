@@ -16,6 +16,8 @@
 //   GET  /stats            user counts for advertisers: total, today, 7 and 30 days, by platform, the last 30 days
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
 //   /admin/stats           /stats plus the app versions in use (admin only)
+//   GET  /config           {paid, minBuild, ...}: what the apps check at start (an update is required / a paid period is required); both off while free
+//   /admin/config          read (GET) and save (POST) /config
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with "Authorization: Bearer <ADMIN_PASSWORD>" (a secret set in Cloudflare);
 //                          5 wrong passwords lock the address out for 15 minutes; /admin/* and /access answer only the Abugram site's origin
@@ -97,6 +99,8 @@ async function db(env) {
     await env.DB.prepare('INSERT OR IGNORE INTO user_platforms (h, platform, version, first, last) SELECT h, platform, \'\', first, last FROM users').run();
     await env.DB.prepare('INSERT OR IGNORE INTO daily_p (day, h, platform, visits) SELECT day, h, platform, 1 FROM daily').run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fails (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0)`).run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT \'\')').run();
+    try { await env.DB.prepare('ALTER TABLE access ADD COLUMN pro_until INTEGER NOT NULL DEFAULT 0').run(); } catch(e) {}
     schemaReady = true;
   }
   return env.DB;
@@ -127,6 +131,23 @@ async function adminGate(request, env, d) {
 
 function clean(value, max) {
   return String(value ?? '').slice(0, max);
+}
+
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: 'Yangilash kerak', updateMessage: 'Xabarchi\'ning yangi versiyasi chiqdi. Saytdan yangilang.', payTitle: 'Obuna kerak', payMessage: 'Davom etish uchun Xabarchi obunasini yoqing.', url: 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/'};
+let configCache = null;
+async function getConfig(env) {
+  if(configCache && Date.now() < configCache.until) return configCache.value;
+  const d = await db(env);
+  let value = {...CONFIG_DEFAULT};
+  if(d) {
+    const {results} = await d.prepare('SELECT k, v FROM config').all();
+    for(const r of results) {
+      if(!(r.k in CONFIG_DEFAULT)) continue;
+      value[r.k] = typeof CONFIG_DEFAULT[r.k] === 'boolean' ? r.v === '1' : typeof CONFIG_DEFAULT[r.k] === 'number' ? Number(r.v) || 0 : r.v;
+    }
+  }
+  configCache = {value, until: Date.now() + 60e3};
+  return value;
 }
 
 async function handleAds(request, env, url) {
@@ -178,8 +199,8 @@ async function handleAds(request, env, url) {
   if(path === '/access' && request.method === 'GET') {
     const d = await db(env);
     const uid = Number(url.searchParams.get('uid'));
-    const row = d && Number.isSafeInteger(uid) && uid > 0 ? await d.prepare('SELECT ghost, admin FROM access WHERE uid = ?').bind(uid).first() : null;
-    return J({ghost: !!(row && row.ghost), admin: !!(row && row.admin)}, 200, {'cache-control': 'no-store'});
+    const row = d && Number.isSafeInteger(uid) && uid > 0 ? await d.prepare('SELECT ghost, admin, pro_until FROM access WHERE uid = ?').bind(uid).first() : null;
+    return J({ghost: !!(row && row.ghost), admin: !!(row && row.admin), pro: !!(row && (row.admin || row.pro_until > Date.now())), proUntil: row ? row.pro_until || 0 : 0}, 200, {'cache-control': 'no-store'});
   }
 
   if(path === '/hello' && request.method === 'POST') {
@@ -250,6 +271,31 @@ async function handleAds(request, env, url) {
     return J(out, 200, admin ? {'cache-control': 'no-store'} : {'cache-control': 'public, max-age=120'});
   }
 
+  if(path === '/config' && request.method === 'GET') {
+    return J(await getConfig(env), 200, {'cache-control': 'public, max-age=60'});
+  }
+
+  if(path === '/admin/config') {
+    const d = await db(env);
+    if(!d) return J({error: 'no database bound as DB'}, 500);
+    const denied = await adminGate(request, env, d);
+    if(denied) return denied;
+    if(request.method === 'GET') return J(await getConfig(env), 200, {'cache-control': 'no-store'});
+    if(request.method === 'POST') {
+      const b = await request.json();
+      const stmts = [];
+      for(const k of Object.keys(CONFIG_DEFAULT)) {
+        if(!(k in b)) continue;
+        const v = typeof CONFIG_DEFAULT[k] === 'boolean' ? (b[k] ? '1' : '0') : typeof CONFIG_DEFAULT[k] === 'number' ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        if(k === 'url' && v && !/^https:\/\//i.test(v)) return J({error: 'Havola https:// bilan boshlanishi kerak'}, 400);
+        stmts.push(d.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, v));
+      }
+      if(stmts.length) await d.batch(stmts);
+      configCache = null;
+      return J({ok: true});
+    }
+  }
+
   if(path === '/admin/access') {
     const d = await db(env);
     if(!d) return J({error: 'no database bound as DB'}, 500, {}, STRICT_CORS);
@@ -263,8 +309,15 @@ async function handleAds(request, env, url) {
       const b = await request.json();
       const uid = Number(b.uid);
       if(!Number.isSafeInteger(uid) || uid <= 0) return J({error: 'Telegram ID raqam bo\'lishi kerak'}, 400);
-      await d.prepare('INSERT INTO access (uid, name, ghost, admin) VALUES (?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin')
-        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0).run();
+      // proDays: pays for that many days from now (0 clears it); left out keeps the current period
+      const old = await d.prepare('SELECT pro_until FROM access WHERE uid = ?').bind(uid).first();
+      let proUntil = old ? old.pro_until || 0 : 0;
+      if('proDays' in b) {
+        const days = Math.max(0, Math.min(3650, Math.floor(Number(b.proDays) || 0)));
+        proUntil = days ? Date.now() + days * 864e5 : 0;
+      }
+      await d.prepare('INSERT INTO access (uid, name, ghost, admin, pro_until) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin, pro_until = excluded.pro_until')
+        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0, proUntil).run();
       return J({ok: true});
     }
     if(request.method === 'DELETE') {
@@ -315,6 +368,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const http = url.pathname.match(HTTP_ROUTE);
+    // an old app can be asked to update: the Android app names its build in a header (a browser sends an Origin and is not asked)
+    if((http || url.pathname.match(WS_ROUTE)) && !request.headers.get('origin') && env.DB) {
+      const cfg = await getConfig(env);
+      const build = Number(request.headers.get('x-abugram-build') || 0);
+      if(cfg.minBuild > 0 && build < cfg.minBuild) {
+        return new Response(JSON.stringify({error: 'update', minBuild: cfg.minBuild}), {status: 426, headers: {'content-type': 'application/json', ...SAFE}});
+      }
+    }
     if(http) {
       const target = 'https://' + http[1].toLowerCase() + '.web.telegram.org/' + http[2] + url.search;
       const response = await fetch(new Request(target, request));
@@ -330,7 +391,7 @@ export default {
       const target = 'https://' + ws[1].toLowerCase() + '.web.telegram.org/' + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/') || url.pathname === '/access' || url.pathname === '/hello' || url.pathname === '/stats') {
+    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/') || url.pathname === '/access' || url.pathname === '/hello' || url.pathname === '/stats' || url.pathname === '/config') {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -339,6 +400,6 @@ export default {
         return json({error: 'server xatosi'}, 500);
       }
     }
-    return new Response('Abugram relay is running (v8).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v9).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };

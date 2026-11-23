@@ -1,6 +1,6 @@
 {
-    "name": "Abugram",
-    "short_name": "Abugram",
+    "name": "Xabarchi",
+    "short_name": "Xabarchi",
     "id": "./",
     "start_url": "./",
     "scope": "./",
@@ -14,7 +14,7 @@
             "origin": "https://telegram.me"
         }
     ],
-    "description": "Abugram: a Telegram client that works where Telegram is blocked.",
+    "description": "Xabarchi: a Telegram client that works where Telegram is blocked.",
     "icons": [
         {
             "src": "assets/img/icon_square_192.png?v=jw3mK7G9Ry",
