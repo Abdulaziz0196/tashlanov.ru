@@ -41,6 +41,8 @@ b{color:var(--text)}
 //   GET  /stats            user counts for advertisers: total, today, 7 and 30 days, by platform, the last 30 days
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
 //   /admin/stats           /stats plus the app versions in use (admin only)
+//   GET  /config           {paid, minBuild, ...}: what the apps check at start (an update is required / a paid period is required); both off while free
+//   /admin/config          read (GET) and save (POST) /config
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare);
 //                          5 wrong passwords lock the address out for 15 minutes; /admin/* and /access answer only the Abugram site&#x27;s origin
@@ -122,6 +124,8 @@ async function db(env) {
     await env.DB.prepare(&#x27;INSERT OR IGNORE INTO user_platforms (h, platform, version, first, last) SELECT h, platform, \&#x27;\&#x27;, first, last FROM users&#x27;).run();
     await env.DB.prepare(&#x27;INSERT OR IGNORE INTO daily_p (day, h, platform, visits) SELECT day, h, platform, 1 FROM daily&#x27;).run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fails (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0)`).run();
+    await env.DB.prepare(&#x27;CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT \&#x27;\&#x27;)&#x27;).run();
+    try { await env.DB.prepare(&#x27;ALTER TABLE access ADD COLUMN pro_until INTEGER NOT NULL DEFAULT 0&#x27;).run(); } catch(e) {}
     schemaReady = true;
   }
   return env.DB;
@@ -152,6 +156,23 @@ async function adminGate(request, env, d) {
 
 function clean(value, max) {
   return String(value ?? &#x27;&#x27;).slice(0, max);
+}
+
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: &#x27;Yangilash kerak&#x27;, updateMessage: &#x27;Xabarchi\&#x27;ning yangi versiyasi chiqdi. Saytdan yangilang.&#x27;, payTitle: &#x27;Obuna kerak&#x27;, payMessage: &#x27;Davom etish uchun Xabarchi obunasini yoqing.&#x27;, url: &#x27;https://abdulaziz0196.github.io/tashlanov.ru/abugram/&#x27;};
+let configCache = null;
+async function getConfig(env) {
+  if(configCache &amp;&amp; Date.now() &lt; configCache.until) return configCache.value;
+  const d = await db(env);
+  let value = {...CONFIG_DEFAULT};
+  if(d) {
+    const {results} = await d.prepare(&#x27;SELECT k, v FROM config&#x27;).all();
+    for(const r of results) {
+      if(!(r.k in CONFIG_DEFAULT)) continue;
+      value[r.k] = typeof CONFIG_DEFAULT[r.k] === &#x27;boolean&#x27; ? r.v === &#x27;1&#x27; : typeof CONFIG_DEFAULT[r.k] === &#x27;number&#x27; ? Number(r.v) || 0 : r.v;
+    }
+  }
+  configCache = {value, until: Date.now() + 60e3};
+  return value;
 }
 
 async function handleAds(request, env, url) {
@@ -203,8 +224,8 @@ async function handleAds(request, env, url) {
   if(path === &#x27;/access&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
     const d = await db(env);
     const uid = Number(url.searchParams.get(&#x27;uid&#x27;));
-    const row = d &amp;&amp; Number.isSafeInteger(uid) &amp;&amp; uid &gt; 0 ? await d.prepare(&#x27;SELECT ghost, admin FROM access WHERE uid = ?&#x27;).bind(uid).first() : null;
-    return J({ghost: !!(row &amp;&amp; row.ghost), admin: !!(row &amp;&amp; row.admin)}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+    const row = d &amp;&amp; Number.isSafeInteger(uid) &amp;&amp; uid &gt; 0 ? await d.prepare(&#x27;SELECT ghost, admin, pro_until FROM access WHERE uid = ?&#x27;).bind(uid).first() : null;
+    return J({ghost: !!(row &amp;&amp; row.ghost), admin: !!(row &amp;&amp; row.admin), pro: !!(row &amp;&amp; (row.admin || row.pro_until &gt; Date.now())), proUntil: row ? row.pro_until || 0 : 0}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
   }
 
   if(path === &#x27;/hello&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
@@ -275,6 +296,31 @@ async function handleAds(request, env, url) {
     return J(out, 200, admin ? {&#x27;cache-control&#x27;: &#x27;no-store&#x27;} : {&#x27;cache-control&#x27;: &#x27;public, max-age=120&#x27;});
   }
 
+  if(path === &#x27;/config&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    return J(await getConfig(env), 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
+  }
+
+  if(path === &#x27;/admin/config&#x27;) {
+    const d = await db(env);
+    if(!d) return J({error: &#x27;no database bound as DB&#x27;}, 500);
+    const denied = await adminGate(request, env, d);
+    if(denied) return denied;
+    if(request.method === &#x27;GET&#x27;) return J(await getConfig(env), 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+    if(request.method === &#x27;POST&#x27;) {
+      const b = await request.json();
+      const stmts = [];
+      for(const k of Object.keys(CONFIG_DEFAULT)) {
+        if(!(k in b)) continue;
+        const v = typeof CONFIG_DEFAULT[k] === &#x27;boolean&#x27; ? (b[k] ? &#x27;1&#x27; : &#x27;0&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;number&#x27; ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        if(k === &#x27;url&#x27; &amp;&amp; v &amp;&amp; !/^https:\/\//i.test(v)) return J({error: &#x27;Havola https:// bilan boshlanishi kerak&#x27;}, 400);
+        stmts.push(d.prepare(&#x27;INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v&#x27;).bind(k, v));
+      }
+      if(stmts.length) await d.batch(stmts);
+      configCache = null;
+      return J({ok: true});
+    }
+  }
+
   if(path === &#x27;/admin/access&#x27;) {
     const d = await db(env);
     if(!d) return J({error: &#x27;no database bound as DB&#x27;}, 500, {}, STRICT_CORS);
@@ -288,8 +334,15 @@ async function handleAds(request, env, url) {
       const b = await request.json();
       const uid = Number(b.uid);
       if(!Number.isSafeInteger(uid) || uid &lt;= 0) return J({error: &#x27;Telegram ID raqam bo\&#x27;lishi kerak&#x27;}, 400);
-      await d.prepare(&#x27;INSERT INTO access (uid, name, ghost, admin) VALUES (?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin&#x27;)
-        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0).run();
+      // proDays: pays for that many days from now (0 clears it); left out keeps the current period
+      const old = await d.prepare(&#x27;SELECT pro_until FROM access WHERE uid = ?&#x27;).bind(uid).first();
+      let proUntil = old ? old.pro_until || 0 : 0;
+      if(&#x27;proDays&#x27; in b) {
+        const days = Math.max(0, Math.min(3650, Math.floor(Number(b.proDays) || 0)));
+        proUntil = days ? Date.now() + days * 864e5 : 0;
+      }
+      await d.prepare(&#x27;INSERT INTO access (uid, name, ghost, admin, pro_until) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET name = excluded.name, ghost = excluded.ghost, admin = excluded.admin, pro_until = excluded.pro_until&#x27;)
+        .bind(uid, clean(b.name, 80), b.ghost ? 1 : 0, b.admin ? 1 : 0, proUntil).run();
       return J({ok: true});
     }
     if(request.method === &#x27;DELETE&#x27;) {
@@ -340,6 +393,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const http = url.pathname.match(HTTP_ROUTE);
+    // an old app can be asked to update: the Android app names its build in a header (a browser sends an Origin and is not asked)
+    if((http || url.pathname.match(WS_ROUTE)) &amp;&amp; !request.headers.get(&#x27;origin&#x27;) &amp;&amp; env.DB) {
+      const cfg = await getConfig(env);
+      const build = Number(request.headers.get(&#x27;x-abugram-build&#x27;) || 0);
+      if(cfg.minBuild &gt; 0 &amp;&amp; build &lt; cfg.minBuild) {
+        return new Response(JSON.stringify({error: &#x27;update&#x27;, minBuild: cfg.minBuild}), {status: 426, headers: {&#x27;content-type&#x27;: &#x27;application/json&#x27;, ...SAFE}});
+      }
+    }
     if(http) {
       const target = &#x27;https://&#x27; + http[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + http[2] + url.search;
       const response = await fetch(new Request(target, request));
@@ -355,7 +416,7 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27;) {
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27; || url.pathname === &#x27;/config&#x27;) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -364,7 +425,7 @@ export default {
         return json({error: &#x27;server xatosi&#x27;}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v8).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v9).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
