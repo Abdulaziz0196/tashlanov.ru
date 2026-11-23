@@ -151,12 +151,44 @@ class ProxyEngine {
         io.execute(() -> {
             try {
                 openServer();
+                io.execute(this::prewarmDns);
                 search();
             } catch (Throwable e) {
                 running = false;
                 h.post(() -> l.onError("Proksi tizimi ishga tushmadi: " + e.getMessage()));
             }
         });
+    }
+
+    private static final long HEALTH_MS = 45000;
+    private int healthFails;
+
+    /**
+     * Har 45 soniyada asosiy proksini tekshiradi. Ikki marta ketma-ket javob bermasa — foydalanuvchi
+     * xatoni ko'rmasidan oldin zaxiradagisiga o'tamiz (ulanish "uzilib qolmasin").
+     */
+    private final Runnable health = new Runnable() {
+        @Override
+        public void run() {
+            if (!running) return;
+            final Up p = primary;
+            if (p == null) { h.postDelayed(this, HEALTH_MS); return; }
+            io.execute(() -> {
+                long ms = test(p);
+                h.post(() -> {
+                    if (ms > 0) { p.ms = ms; healthFails = 0; }
+                    else if (++healthFails >= 2) { healthFails = 0; p.fails.set(99); drop(p); }
+                    h.postDelayed(health, HEALTH_MS);
+                });
+            });
+        }
+    };
+
+    /** Instagram'ning asosiy manzillarini oldindan IP'ga aylantirib qo'yamiz — birinchi ochilish tezroq. */
+    private void prewarmDns() {
+        String[] hosts = {"www.instagram.com", "static.cdninstagram.com", "i.instagram.com", "graph.instagram.com",
+                "scontent.cdninstagram.com", "www.facebook.com", "connect.facebook.net"};
+        for (String host : hosts) { if (!running) return; resolve(host); }
     }
 
     /** Sahifa ochilmadi — hozirgi proksini tashlab, keyingisiga o'tamiz. */
@@ -308,6 +340,7 @@ class ProxyEngine {
                     ready = true;
                     saveGood();
                     l.onReady(localPort);
+                    h.postDelayed(health, HEALTH_MS);
                 }
             }, 1500);
         }
@@ -403,6 +436,12 @@ class ProxyEngine {
             int colon = hp.lastIndexOf(':');
             String host = colon > 0 ? hp.substring(0, colon) : hp;
             int port = colon > 0 ? Integer.parseInt(hp.substring(colon + 1)) : 443;
+            // xavfsizlik: faqat veb-portlar (443/80) — ichki proksidan boshqa maqsadda foydalanib bo'lmaydi
+            if (port != 443 && port != 80) {
+                write(c, "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+                c.close();
+                return;
+            }
             String forced = null;
             for (String line : head.split("\r\n")) if (line.regionMatches(true, 0, "X-Lenta-Up:", 0, 11)) forced = line.substring(11).trim();
 

@@ -142,6 +142,7 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setTextZoom(100);
+        s.setMediaPlaybackRequiresUserGesture(false); // ochilish ovozi uchun
         home.addJavascriptInterface(new Bridge(), "Native");
         home.setWebViewClient(new WebViewClient() {
             @Override
@@ -168,6 +169,7 @@ public class MainActivity extends Activity {
                 o.put("mode", mode());
                 o.put("version", appVersion());
                 o.put("eco", sp.getBoolean("eco", true));
+                o.put("sound", sp.getBoolean("sound", true));
                 o.put("torReady", tor != null && tor.isReady());
                 o.put("bridges", sp.getString("bridges_custom", ""));
                 o.put("proxyOk", WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE));
@@ -188,6 +190,7 @@ public class MainActivity extends Activity {
                         .putBoolean("auto", o.optBoolean("auto", true))
                         .putString("mode", o.optString("mode", "auto"))
                         .putBoolean("eco", o.optBoolean("eco", true))
+                        .putBoolean("sound", o.optBoolean("sound", true))
                         .apply();
             } catch (Exception ignored) { }
         }
@@ -373,6 +376,13 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // xavfsizlik: Instagram oynasi telefon fayllari va joylashuvga kira olmaydi
+        s.setAllowFileAccess(false);
+        s.setAllowContentAccess(false);
+        s.setGeolocationEnabled(false);
+        // tezlik: ekrandan tashqaridagi qismni oldindan chizib qo'yadi — aylantirish silliqroq
+        s.setOffscreenPreRaster(true);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setSupportZoom(false);
