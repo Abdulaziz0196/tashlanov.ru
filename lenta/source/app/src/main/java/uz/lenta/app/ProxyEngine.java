@@ -56,29 +56,62 @@ class ProxyEngine {
     }
 
     static final String SITE_LIST = "https://abdulaziz0196.github.io/tashlanov.ru/lenta/proxies.txt";
-    static final String[] RAW_LISTS = {
-            "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt",
-            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
-            "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
-            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-            "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt",
+    static final int HTTP = 0, SOCKS4 = 4, SOCKS5 = 5;
+
+    /** Manba: manzil, sxemasiz qatorlar turi, navbat (1 — yangi/tekshirilgan, avval sinaladi), nechta olinadi. */
+    static final class Src {
+        final String url; final int type, tier, take;
+        Src(String url, int type, int tier, int take) { this.url = url; this.type = type; this.tier = tier; this.take = take; }
+    }
+
+    static final Src[] SOURCES = {
+            // rasmiy xizmatlar (API) — yaqinda tekshirilgan proksilar
+            new Src("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&protocol=socks5&proxy_format=protocolipport&format=text", SOCKS5, 1, 400),
+            new Src("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&protocol=socks4&proxy_format=protocolipport&format=text", SOCKS4, 1, 300),
+            new Src("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&protocol=http&proxy_format=protocolipport&format=text", HTTP, 1, 300),
+            new Src("https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=socks5", SOCKS5, 1, 400),
+            new Src("https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=socks4", SOCKS4, 1, 300),
+            new Src("https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps", HTTP, 1, 300),
+            // norasmiy ro'yxatlar (GitHub) — tekshirilganlari birinchi navbatda
+            new Src("https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt", SOCKS5, 1, 300),
+            new Src("https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt", SOCKS4, 1, 300),
+            new Src("https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt", SOCKS5, 1, 300),
+            new Src("https://raw.githubusercontent.com/elliottophellia/proxylist/master/results/socks5/global/socks5_checked.txt", SOCKS5, 1, 200),
+            new Src("https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt", SOCKS5, 2, 300),
+            new Src("https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks4/data.txt", SOCKS4, 2, 200),
+            new Src("https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt", HTTP, 2, 200),
+            new Src("https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt", HTTP, 2, 300),
+            new Src("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt", SOCKS5, 2, 250),
+            new Src("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt", SOCKS4, 2, 200),
+            new Src("https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt", SOCKS5, 2, 250),
+            new Src("https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/generated/socks5_proxies.txt", SOCKS5, 2, 200),
+            new Src("https://raw.githubusercontent.com/r00tee/Proxy-List/main/Socks5.txt", SOCKS5, 2, 250),
+            new Src("https://raw.githubusercontent.com/dpangestuw/Free-Proxy/main/socks5_proxies.txt", SOCKS5, 2, 250),
+            new Src("https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks5.txt", SOCKS5, 2, 100),
+            new Src("https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt", SOCKS5, 2, 100),
+            new Src("https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt", SOCKS5, 2, 100),
+            new Src("https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks4.txt", SOCKS4, 2, 150),
+            new Src("https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt", SOCKS5, 2, 200),
+            new Src("https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks5.txt", SOCKS5, 2, 200),
     };
     static final String TEST_HOST = "www.instagram.com";
     private static final int TEST_TIMEOUT = 7000;
     private static final int PARALLEL = 80;
     private static final int WANT = 12;
-    private static final Pattern P_PROXY = Pattern.compile("(?:(socks5h?|socks|http|https)://)?(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{2,5})");
+    private static final Pattern P_PROXY = Pattern.compile("(?:(socks5h?|socks4a?|socks|http|https)://)?(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{2,5})");
+    // GeoNode JSON: {"ip":"1.2.3.4", ... "port":"1080", ... "protocols":["socks5"]}
+    private static final Pattern P_JSON = Pattern.compile("\"ip\"\\s*:\\s*\"(\\d{1,3}(?:\\.\\d{1,3}){3})\"[^{}]*?\"port\"\\s*:\\s*\"?(\\d{2,5})\"?[^{}]*?\"protocols\"\\s*:\\s*\\[\\s*\"(\\w+)\"");
     private static final Pattern P_IP = Pattern.compile("\"data\"\\s*:\\s*\"(\\d{1,3}(?:\\.\\d{1,3}){3})\"");
 
     static final class Up {
-        final boolean socks;
+        final int type;
         final String host;
         final int port;
         volatile long ms = Long.MAX_VALUE;
         final AtomicInteger fails = new AtomicInteger();
 
-        Up(boolean socks, String host, int port) { this.socks = socks; this.host = host; this.port = port; }
-        String key() { return (socks ? "socks5://" : "http://") + host + ":" + port; }
+        Up(int type, String host, int port) { this.type = type; this.host = host; this.port = port; }
+        String key() { return (type == SOCKS5 ? "socks5://" : type == SOCKS4 ? "socks4://" : "http://") + host + ":" + port; }
     }
 
     private final Context ctx;
@@ -170,27 +203,55 @@ class ProxyEngine {
     private void loadCandidates() {
         List<Up> list = new ArrayList<>();
         // 1) oldin ishlaganlar — eng birinchi
-        list.addAll(parse(readFile(cacheFile()), true));
+        list.addAll(parse(readFile(cacheFile()), SOCKS5));
         // 2) saytdagi tekshirilgan ro'yxat (har bir necha soatda yangilanadi)
-        List<Up> site = parse(fetch(SITE_LIST + "?t=" + (System.currentTimeMillis() / 900000)), true);
+        List<Up> site = parse(fetch(SITE_LIST + "?t=" + (System.currentTimeMillis() / 900000)), SOCKS5);
         list.addAll(site);
         // 3) sayt ochilmasa yoki ro'yxat kichik bo'lsa — ochiq manbalardan
         if (site.size() < 40) {
-            List<Up> raw = new ArrayList<>();
-            for (String u : RAW_LISTS) {
-                List<Up> part = parse(fetch(u), u.contains("socks5"));
-                Collections.shuffle(part);
-                raw.addAll(part.subList(0, Math.min(part.size(), 300)));
+            // barcha manbalar parallel yuklanadi; 1-navbatdagilar (yangi/tekshirilgan) avval sinaladi
+            final List<List<Up>> parts = Collections.synchronizedList(new ArrayList<>());
+            for (int i = 0; i < SOURCES.length; i++) parts.add(new ArrayList<>());
+            ExecutorService dl = Executors.newFixedThreadPool(8);
+            for (int i = 0; i < SOURCES.length; i++) {
+                final int k = i;
+                dl.execute(() -> {
+                    Src src = SOURCES[k];
+                    List<Up> part = parse(fetch(src.url), src.type);
+                    Collections.shuffle(part);
+                    parts.set(k, new ArrayList<>(part.subList(0, Math.min(part.size(), src.take))));
+                });
             }
-            Collections.shuffle(raw);
-            list.addAll(raw);
+            dl.shutdown();
+            try { dl.awaitTermination(25, TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
+            for (int tier = 1; tier <= 2; tier++) {
+                List<Up> t = new ArrayList<>();
+                for (int i = 0; i < SOURCES.length; i++) if (SOURCES[i].tier == tier) t.addAll(parts.get(i));
+                Collections.shuffle(t);
+                list.addAll(t);
+            }
         }
         for (Up u : list) if (seen.add(u.key())) { pending.add(u); byKey.put(u.key(), u); }
     }
 
-    private static List<Up> parse(String text, boolean defaultSocks) {
+    private static int typeOf(String scheme, int def) {
+        if (scheme == null || scheme.isEmpty()) return def;
+        scheme = scheme.toLowerCase();
+        if (scheme.startsWith("socks4")) return SOCKS4;
+        if (scheme.startsWith("socks")) return SOCKS5;
+        return HTTP;
+    }
+
+    private static List<Up> parse(String text, int defaultType) {
         List<Up> out = new ArrayList<>();
         if (text == null) return out;
+        if (text.trim().startsWith("{")) {
+            Matcher j = P_JSON.matcher(text);
+            while (j.find()) {
+                try { out.add(new Up(typeOf(j.group(3), defaultType), j.group(1), Integer.parseInt(j.group(2)))); } catch (Exception ignored) { }
+            }
+            return out;
+        }
         Matcher m = P_PROXY.matcher(text);
         while (m.find()) {
             String scheme = m.group(1) == null ? "" : m.group(1);
@@ -198,8 +259,7 @@ class ProxyEngine {
             try { port = Integer.parseInt(m.group(3)); } catch (Exception e) { continue; }
             if (port <= 0 || port > 65535) continue;
             // sxemasiz qatorlar (ip:port) — manba turiga qarab
-            boolean socks = scheme.isEmpty() ? defaultSocks : scheme.startsWith("socks");
-            out.add(new Up(socks, m.group(2), port));
+            out.add(new Up(typeOf(scheme, defaultType), m.group(2), port));
         }
         return out;
     }
@@ -360,7 +420,22 @@ class ProxyEngine {
             InputStream in = s.getInputStream();
             OutputStream out = s.getOutputStream();
             String ip = resolve(host);
-            if (u.socks) {
+            if (u.type == SOCKS4) {
+                // SOCKS4 (IP bo'lmasa — SOCKS4a: nom proksi tomonda aniqlanadi)
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                b.write(4);
+                b.write(1);
+                b.write((port >> 8) & 0xff);
+                b.write(port & 0xff);
+                if (ip != null) for (String p : ip.split("\\.")) b.write(Integer.parseInt(p));
+                else b.write(new byte[]{0, 0, 0, 1});
+                b.write(0);
+                if (ip == null) { b.write(host.getBytes(StandardCharsets.US_ASCII)); b.write(0); }
+                out.write(b.toByteArray());
+                out.flush();
+                byte[] rep = readN(in, 8);
+                if (rep[1] != 0x5A) throw new IOException("socks4 connect " + rep[1]);
+            } else if (u.type == SOCKS5) {
                 out.write(new byte[]{5, 1, 0});
                 out.flush();
                 byte[] r = readN(in, 2);
