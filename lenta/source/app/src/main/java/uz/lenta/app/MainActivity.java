@@ -81,7 +81,9 @@ public class MainActivity extends Activity {
         ig.setVisibility(View.GONE);
         setContentView(root);
         tor = new TorManager(this, new TorManager.Listener() {
-            @Override public void onProgress(int pct, String tag) { home("onTor(" + pct + "," + JSONObject.quote(tag) + ")"); }
+            @Override public void onProgress(int pct, String tag, String stage, int no, int count) {
+                home("onTor(" + pct + "," + JSONObject.quote(tag) + "," + JSONObject.quote(stage) + "," + no + "," + count + ")");
+            }
             @Override public void onReady(int port) {
                 home("onTorReady()");
                 if (pendingOpen) { pendingOpen = false; applyAndOpen(); }
@@ -122,10 +124,11 @@ public class MainActivity extends Activity {
                 o.put("pass", sp.getString("pass", ""));
                 o.put("theme", sp.getString("theme", "gold"));
                 o.put("zoom", sp.getInt("zoom", 100));
-                o.put("auto", sp.getBoolean("auto", false));
+                o.put("auto", sp.getBoolean("auto", true));
                 o.put("mode", mode());
                 o.put("eco", sp.getBoolean("eco", true));
                 o.put("torReady", tor != null && tor.isReady());
+                o.put("bridges", sp.getString("bridges_custom", ""));
                 o.put("proxyOk", WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE));
             } catch (Exception ignored) { }
             return o.toString();
@@ -141,7 +144,7 @@ public class MainActivity extends Activity {
                         .putString("pass", o.optString("pass", ""))
                         .putString("theme", o.optString("theme", "gold"))
                         .putInt("zoom", Math.max(80, Math.min(140, o.optInt("zoom", 100))))
-                        .putBoolean("auto", o.optBoolean("auto", false))
+                        .putBoolean("auto", o.optBoolean("auto", true))
                         .putString("mode", o.optString("mode", "tor"))
                         .putBoolean("eco", o.optBoolean("eco", true))
                         .apply();
@@ -159,6 +162,20 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void open() { ui.post(MainActivity.this::applyAndOpen); }
+
+        @JavascriptInterface
+        public int setBridges(String text) {
+            int n = TorManager.parse(text).size();
+            sp.edit().putString("bridges_custom", text == null ? "" : text.trim()).apply();
+            ui.post(() -> tor.reloadBridges());
+            return n;
+        }
+
+        @JavascriptInterface
+        public void cancel() { ui.post(() -> pendingOpen = false); }
+
+        @JavascriptInterface
+        public void nextBridge() { ui.post(() -> tor.nextStage()); }
 
         @JavascriptInterface
         public void connect() { ui.post(() -> { if (mode().equals("tor")) tor.start(); }); }
