@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Abugram</title>
-<meta name="description" content="Abugram — VPN'siz ishlaydigan Telegram mijozi. Android, iPhone va veb uchun bepul.">
+<title>Xabarchi</title>
+<meta name="description" content="Xabarchi — VPN'siz ishlaydigan Telegram mijozi. Android, iPhone va veb uchun bepul.">
 <meta name="theme-color" content="#050713">
 <link rel="icon" href="web/assets/img/favicon-32x32.png">
 <link rel="apple-touch-icon" href="web/assets/img/apple-touch-icon.png">
@@ -23,6 +23,7 @@ a{color:inherit;text-decoration:none}
 nav{position:sticky;top:0;z-index:10;backdrop-filter:blur(18px);background:#050713cc;border-bottom:1px solid #ffffff10}
 nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+img.logo{background:none!important;box-shadow:none!important;display:block!important;border-radius:9px}
 .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(180deg,var(--a1),var(--a2));display:grid;place-items:center;font-weight:900;font-size:18px;box-shadow:0 8px 24px #00d5ff40}
 .navlinks{display:flex;gap:18px;align-items:center;font-size:14px;color:var(--muted)}
 .navlinks a:hover{color:#fff}
@@ -110,7 +111,7 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 <div class="bgfx"></div>
 
 <nav><div class="wrap">
-  <a class="brand" href="#top"><div class="logo">A</div>Abugram</a>
+  <a class="brand" href="#top"><img class="logo" src="logo.svg" alt="">Xabarchi</a>
   <div class="navlinks">
     <a class="hide-sm" href="#yuklab"><span data-lang="uz">Yuklab olish</span><span data-lang="ru">Скачать</span></a>
     <a class="hide-sm" href="#imkoniyatlar"><span data-lang="uz">Imkoniyatlar</span><span data-lang="ru">Возможности</span></a>
@@ -127,8 +128,8 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
     <div class="tag">🛡 <span data-lang="uz">VPN'siz ulanish uchun ichki proxy</span><span data-lang="ru">Встроенный прокси — без VPN</span></div>
     <h1 data-lang="uz">Telegram,<br><span>to'siqlarsiz.</span></h1>
     <h1 data-lang="ru">Telegram,<br><span>без блокировок.</span></h1>
-    <p class="lead" data-lang="uz">Abugram — o'z hisobingiz, chatlaringiz va kanallaringiz bilan ishlaydigan Telegram mijozi. Ichki proxy o'zi ulanadi, ustiga ko'rinmas rejim, reklamasiz kanallar va boshqa qulayliklar.</p>
-    <p class="lead" data-lang="ru">Abugram — клиент Telegram с вашим аккаунтом, чатами и каналами. Встроенный прокси подключается сам, плюс режим невидимки, каналы без рекламы и другие удобства.</p>
+    <p class="lead" data-lang="uz">Xabarchi — o'z hisobingiz, chatlaringiz va kanallaringiz bilan ishlaydigan Telegram mijozi. Ichki proxy o'zi ulanadi, VPN kerak emas. Soniyali vaqt, yuborish vaqti, qo'ng'iroqdan oldin so'rash va boshqa qulayliklar.</p>
+    <p class="lead" data-lang="ru">Xabarchi — клиент Telegram с вашим аккаунтом, чатами и каналами. Встроенный прокси подключается сам, VPN не нужен. Время с секундами, время отправки, подтверждение звонка и другие удобства.</p>
     <div class="cta">
       <a class="btn" href="#yuklab">⬇️ <span data-lang="uz">Bepul yuklab olish</span><span data-lang="ru">Скачать бесплатно</span></a>
       <a class="btn ghost" href="web/">🌐 <span data-lang="uz">Brauzerda ochish</span><span data-lang="ru">Открыть в браузере</span></a>
@@ -140,11 +141,11 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
     </div>
   </div>
   <div class="mock" aria-hidden="true"><div class="screen">
-    <div class="sbar"><b>Abugram</b><span>9:41</span></div>
+    <div class="sbar"><b>Xabarchi</b><span>9:41</span></div>
     <div class="proxy"><span class="dot"></span><span data-lang="uz">Proxy orqali ulandi · VPN shart emas</span><span data-lang="ru">Подключено через прокси · VPN не нужен</span></div>
     <div class="chat"><div class="av" style="background:linear-gradient(135deg,#ff8a5c,#ff4f81)"></div><div><div class="t">Oila 👨‍👩‍👧</div><div class="s">Onam: Kechki ovqatga kel</div></div></div>
     <div class="chat"><div class="av" style="background:linear-gradient(135deg,#5cc8ff,#6a5cff)"></div><div><div class="t">Ish guruhi</div><div class="s">Hisobot tayyor ✅</div></div></div>
-    <div class="chat"><div class="av" style="background:linear-gradient(135deg,#33d17a,#00b3a4)"></div><div><div class="t">Yangiliklar</div><div class="s">Reklamasiz kanal 🚫</div></div></div>
+    <div class="chat"><div class="av" style="background:linear-gradient(135deg,#33d17a,#00b3a4)"></div><div><div class="t">Yangiliklar</div><div class="s">Yangi post bor 📢</div></div></div>
     <div class="chat"><div class="av" style="background:linear-gradient(135deg,#ffd15c,#ff9f1c)"></div><div><div class="t">Do'stlar</div><div class="s">👻 o'qildi belgisi yuborilmadi</div></div></div>
     <div class="chat"><div class="av" style="background:linear-gradient(135deg,#b06cff,#ff6cd9)"></div><div><div class="t">Saqlangan xabarlar</div><div class="s">🗑 O'chirilgan xabar saqlandi</div></div></div>
   </div></div>
@@ -153,26 +154,26 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 <section id="yuklab">
   <div class="kicker" data-lang="uz">Yuklab olish</div><div class="kicker" data-lang="ru">Скачать</div>
   <h2 data-lang="uz">Qurilmangizni tanlang</h2><h2 data-lang="ru">Выберите устройство</h2>
-  <p class="sub" data-lang="uz">Hammasi bepul. Rasmiy Telegram'ni o'chirish shart emas — Abugram yonida alohida ilova bo'lib turadi.</p>
-  <p class="sub" data-lang="ru">Всё бесплатно. Удалять официальный Telegram не нужно — Abugram ставится отдельным приложением рядом.</p>
+  <p class="sub" data-lang="uz">Hammasi bepul. Rasmiy Telegram'ni o'chirish shart emas — Xabarchi yonida alohida ilova bo'lib turadi.</p>
+  <p class="sub" data-lang="ru">Всё бесплатно. Удалять официальный Telegram не нужно — Xabarchi ставится отдельным приложением рядом.</p>
 
   <div class="dl">
     <div class="card" id="card-android">
       <div class="ic">🤖</div>
       <h3>Android</h3>
-      <p data-lang="uz">Eng to'liq versiya: VPN'siz proxy, avtomatik almashtirish va barcha Abugram sozlamalari.</p>
-      <p data-lang="ru">Самая полная версия: прокси без VPN, автопереключение и все настройки Abugram.</p>
+      <p data-lang="uz">Eng to'liq versiya: VPN'siz proxy, avtomatik almashtirish va barcha Xabarchi sozlamalari.</p>
+      <p data-lang="ru">Самая полная версия: прокси без VPN, автопереключение и все настройки Xabarchi.</p>
       <div class="status wait" id="st-android">⏳ <span data-lang="uz">Tekshirilmoqda…</span><span data-lang="ru">Проверяем…</span></div>
-      <a class="btn" id="btn-android" aria-disabled="true" href="https://github.com/Abdulaziz0196/abugram-android/releases/latest">⬇️ Abugram.apk</a>
+      <a class="btn" id="btn-android" aria-disabled="true" href="https://github.com/Abdulaziz0196/abugram-android/releases/latest">⬇️ Xabarchi.apk</a>
       <div class="meta" id="meta-android"></div>
     </div>
     <div class="card" id="card-ios">
       <div class="ic">🍏</div>
       <h3>iPhone (IPA)</h3>
-      <p data-lang="uz">Sinov versiyasi. GBox, Feather, Esign yoki Sideloadly orqali o'rnating. Avval eski Abugram'ni o'chiring.</p>
-      <p data-lang="ru">Тестовая версия. Установите через GBox, Feather, Esign или Sideloadly. Сначала удалите старый Abugram.</p>
+      <p data-lang="uz">Sinov versiyasi. GBox, Feather, Esign yoki Sideloadly orqali o'rnating. Avval eski Xabarchi'ni o'chiring.</p>
+      <p data-lang="ru">Тестовая версия. Установите через GBox, Feather, Esign или Sideloadly. Сначала удалите старый Xabarchi.</p>
       <div class="status wait" id="st-ios">⏳ <span data-lang="uz">Tekshirilmoqda…</span><span data-lang="ru">Проверяем…</span></div>
-      <a class="btn" id="btn-ios" aria-disabled="true" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest">⬇️ Abugram.ipa</a>
+      <a class="btn" id="btn-ios" aria-disabled="true" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest">⬇️ Xabarchi.ipa</a>
       <div class="meta" id="meta-ios"></div>
     </div>
     <div class="card" id="card-web">
@@ -190,15 +191,15 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 <section id="imkoniyatlar">
   <div class="kicker" data-lang="uz">Imkoniyatlar</div><div class="kicker" data-lang="ru">Возможности</div>
   <h2 data-lang="uz">Telegram'ning hammasi, va yana</h2><h2 data-lang="ru">Весь Telegram, и ещё больше</h2>
-  <p class="sub" data-lang="uz">Hisobingiz, chatlar, kanallar, qo'ng'iroqlar — hammasi o'sha. Abugram faqat qo'shimcha beradi. Har bir funksiya Sozlamalar → Abugram bo'limida yoqiladi.</p>
-  <p class="sub" data-lang="ru">Ваш аккаунт, чаты, каналы, звонки — всё то же. Abugram только добавляет. Каждая функция включается в Настройки → Abugram.</p>
+  <p class="sub" data-lang="uz">Hisobingiz, chatlar, kanallar, qo'ng'iroqlar — hammasi o'sha. Xabarchi faqat qo'shimcha beradi. Har bir funksiya Sozlamalar → Xabarchi bo'limida yoqiladi.</p>
+  <p class="sub" data-lang="ru">Ваш аккаунт, чаты, каналы, звонки — всё то же. Xabarchi только добавляет. Каждая функция включается в Настройки → Xabarchi.</p>
   <div class="feat">
     <div class="f"><b>🛡</b><h4 data-lang="uz">VPN'siz ulanish</h4><h4 data-lang="ru">Без VPN</h4><p data-lang="uz">Ichki proxy ro'yxati har soatda yangilanadi. Ishlaydiganini o'zi topadi, bloklansa 5 soniyada keyingisiga o'tadi.</p><p data-lang="ru">Список прокси обновляется каждый час. Сам находит рабочий и за 5 секунд переключается при блокировке.</p><span class="pill on" data-lang="uz">Doim yoqiq</span><span class="pill on" data-lang="ru">Всегда включено</span></div>
-    <div class="f"><b>👻</b><h4 data-lang="uz">Ko'rinmas rejim</h4><h4 data-lang="ru">Режим невидимки</h4><p data-lang="uz">"O'qildi" belgisi va "yozmoqda…" yuborilmaydi, onlayn ko'rinmaysiz.</p><p data-lang="ru">Не отправляются «прочитано» и «печатает…», вы не в сети.</p><span class="pill" data-lang="uz">Ixtiyoriy</span><span class="pill" data-lang="ru">По желанию</span></div>
+    <div class="f"><b>👻</b><h4 data-lang="uz">Ko'rinmas rejim</h4><h4 data-lang="ru">Режим невидимки</h4><p data-lang="uz">"O'qildi" belgisi va "yozmoqda…" yuborilmaydi, onlayn ko'rinmaysiz. Faqat admin ruxsat bergan hisoblarda.</p><p data-lang="ru">Не отправляются «прочитано» и «печатает…», вы не в сети. Только для аккаунтов, которым разрешил администратор.</p><span class="pill" data-lang="uz">Ruxsat bilan</span><span class="pill" data-lang="ru">По разрешению</span></div>
     <div class="f"><b>👀</b><h4 data-lang="uz">Yashirin story</h4><h4 data-lang="ru">Скрытые истории</h4><p data-lang="uz">Story'larni ko'rganingiz egasiga bilinmaydi.</p><p data-lang="ru">Автор не узнает, что вы смотрели историю.</p><span class="pill" data-lang="uz">Ixtiyoriy</span><span class="pill" data-lang="ru">По желанию</span></div>
     <div class="f"><b>🗑</b><h4 data-lang="uz">O'chirilganlar saqlanadi</h4><h4 data-lang="ru">Удалённые сохраняются</h4><p data-lang="uz">Suhbatdosh xabarni o'chirsa ham, sizning telefoningizda qoladi.</p><p data-lang="ru">Даже если собеседник удалит сообщение, у вас оно останется.</p><span class="pill" data-lang="uz">Ixtiyoriy</span><span class="pill" data-lang="ru">По желанию</span></div>
-    <div class="f"><b>🚫</b><h4 data-lang="uz">Reklamasiz kanallar</h4><h4 data-lang="ru">Каналы без рекламы</h4><p data-lang="uz">Kanallardagi homiy xabarlar ko'rsatilmaydi.</p><p data-lang="ru">Спонсорские сообщения в каналах скрыты.</p><span class="pill on" data-lang="uz">Yoqiq</span><span class="pill on" data-lang="ru">Включено</span></div>
-    <div class="f"><b>🤝</b><h4 data-lang="uz">Telegram bilan birga</h4><h4 data-lang="ru">Вместе с Telegram</h4><p data-lang="uz">Rasmiy Telegram ham, Abugram ham telefonda turadi — bir hisob ikkalasida ishlaydi.</p><p data-lang="ru">На телефоне и официальный Telegram, и Abugram — один аккаунт работает в обоих.</p><span class="pill on" data-lang="uz">Doim</span><span class="pill on" data-lang="ru">Всегда</span></div>
+    <div class="f"><b>⏱️</b><h4 data-lang="uz">Yuborish vaqti</h4><h4 data-lang="ru">Время отправки</h4><p data-lang="uz">Rasm, video va ovozli xabar qancha vaqtda ketgani vaqtining yonida yoziladi.</p><p data-lang="ru">Рядом со временем сообщения показано, сколько заняла отправка фото, видео и голосовых.</p><span class="pill on" data-lang="uz">Yoqiq</span><span class="pill on" data-lang="ru">Включено</span></div>
+    <div class="f"><b>🤝</b><h4 data-lang="uz">Telegram bilan birga</h4><h4 data-lang="ru">Вместе с Telegram</h4><p data-lang="uz">Rasmiy Telegram ham, Xabarchi ham telefonda turadi — bir hisob ikkalasida ishlaydi.</p><p data-lang="ru">На телефоне и официальный Telegram, и Xabarchi — один аккаунт работает в обоих.</p><span class="pill on" data-lang="uz">Doim</span><span class="pill on" data-lang="ru">Всегда</span></div>
   </div>
 </section>
 
@@ -220,22 +221,22 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
     <button type="button" role="tab" aria-selected="false" data-tab="web">🌐 <span data-lang="uz">Veb / iPhone</span><span data-lang="ru">Веб / iPhone</span></button>
   </div>
   <div class="panel" data-panel="android">
-    <ol data-lang="uz"><li><b>Abugram.apk</b> ni yuklab oling.</li><li>Faylni oching. Telefon so'rasa, <b>"Noma'lum manbalardan o'rnatish"</b>ga ruxsat bering.</li><li><b>O'rnatish</b> ni bosing.</li><li>Abugram'ni oching va raqamingiz bilan kiring — proxy o'zi yoqiladi.</li></ol>
-    <ol data-lang="ru"><li>Скачайте <b>Abugram.apk</b>.</li><li>Откройте файл. Если телефон спросит — разрешите <b>«Установку из неизвестных источников»</b>.</li><li>Нажмите <b>Установить</b>.</li><li>Откройте Abugram и войдите по номеру — прокси включится сам.</li></ol>
+    <ol data-lang="uz"><li><b>Xabarchi.apk</b> ni yuklab oling.</li><li>Faylni oching. Telefon so'rasa, <b>"Noma'lum manbalardan o'rnatish"</b>ga ruxsat bering.</li><li><b>O'rnatish</b> ni bosing.</li><li>Xabarchi'ni oching va raqamingiz bilan kiring — proxy o'zi yoqiladi.</li></ol>
+    <ol data-lang="ru"><li>Скачайте <b>Xabarchi.apk</b>.</li><li>Откройте файл. Если телефон спросит — разрешите <b>«Установку из неизвестных источников»</b>.</li><li>Нажмите <b>Установить</b>.</li><li>Откройте Xabarchi и войдите по номеру — прокси включится сам.</li></ol>
   </div>
   <div class="panel" data-panel="web" hidden>
-    <ol data-lang="uz"><li>iPhone'da <b>Safari</b>'da <a href="web/" style="text-decoration:underline">Abugram Web</a> ni oching.</li><li>Pastdagi <b>Ulashish</b> tugmasini bosing.</li><li><b>"На экран Домой" / "Add to Home Screen"</b> ni tanlang.</li><li>Bosh ekrandagi Abugram'ni oching va kiring.</li></ol>
-    <ol data-lang="ru"><li>На iPhone откройте <a href="web/" style="text-decoration:underline">Abugram Web</a> в <b>Safari</b>.</li><li>Нажмите <b>Поделиться</b> внизу.</li><li>Выберите <b>«На экран Домой»</b>.</li><li>Откройте Abugram с экрана «Домой» и войдите.</li></ol>
+    <ol data-lang="uz"><li>iPhone'da <b>Safari</b>'da <a href="web/" style="text-decoration:underline">Xabarchi Web</a> ni oching.</li><li>Pastdagi <b>Ulashish</b> tugmasini bosing.</li><li><b>"На экран Домой" / "Add to Home Screen"</b> ni tanlang.</li><li>Bosh ekrandagi Xabarchi'ni oching va kiring.</li></ol>
+    <ol data-lang="ru"><li>На iPhone откройте <a href="web/" style="text-decoration:underline">Xabarchi Web</a> в <b>Safari</b>.</li><li>Нажмите <b>Поделиться</b> внизу.</li><li>Выберите <b>«На экран Домой»</b>.</li><li>Откройте Xabarchi с экрана «Домой» и войдите.</li></ol>
   </div>
 </section>
 
 <section id="savollar">
   <div class="kicker" data-lang="uz">Savollar</div><div class="kicker" data-lang="ru">Вопросы</div>
   <h2 data-lang="uz">Ko'p beriladigan savollar</h2><h2 data-lang="ru">Частые вопросы</h2>
-  <details><summary><span data-lang="uz">Xabarlarim xavfsizmi?</span><span data-lang="ru">Мои сообщения в безопасности?</span></summary><p data-lang="uz">Ha. Abugram Telegram'ning ochiq kodidan qurilgan va xuddi shu shifrlashdan foydalanadi. Proxy egasi xabarlarni o'qiy olmaydi — u faqat IP manzilni ko'radi.</p><p data-lang="ru">Да. Abugram собран из открытого кода Telegram и использует то же шифрование. Владелец прокси не может читать сообщения — он видит только IP-адрес.</p></details>
-  <details><summary><span data-lang="uz">Bu rasmiy Telegram'mi?</span><span data-lang="ru">Это официальный Telegram?</span></summary><p data-lang="uz">Yo'q, bu norasmiy mijoz. Telegram bunday ilovalarga ruxsat beradi. Lekin ko'rinmas rejim kabi funksiyalar Telegram qoidalariga zid bo'lishi mumkin, shuning uchun ular sukut bo'yicha o'chiq.</p><p data-lang="ru">Нет, это неофициальный клиент. Telegram разрешает такие приложения. Но функции вроде невидимки могут нарушать правила Telegram, поэтому по умолчанию они выключены.</p></details>
-  <details><summary><span data-lang="uz">Rasmiy Telegram'ni o'chirishim kerakmi?</span><span data-lang="ru">Нужно ли удалять официальный Telegram?</span></summary><p data-lang="uz">Yo'q. Abugram alohida ilova — ikkalasi ham turadi va bir hisob bilan ishlaydi.</p><p data-lang="ru">Нет. Abugram — отдельное приложение, оба работают с одним аккаунтом.</p></details>
-  <details><summary><span data-lang="uz">VPN'siz ulanmasa nima qilay?</span><span data-lang="ru">Что делать, если не подключается без VPN?</span></summary><p data-lang="uz">Sozlamalar → Abugram → Proxy ro'yxati bo'limida ishlayotgan (yashil) proxy'ni tanlang. Ro'yxat har soatda yangilanadi.</p><p data-lang="ru">Откройте Настройки → Abugram → Список прокси и выберите рабочий (зелёный). Список обновляется каждый час.</p></details>
+  <details><summary><span data-lang="uz">Xabarlarim xavfsizmi?</span><span data-lang="ru">Мои сообщения в безопасности?</span></summary><p data-lang="uz">Ha. Xabarchi Telegram'ning ochiq kodidan qurilgan va xuddi shu shifrlashdan foydalanadi. Proxy egasi xabarlarni o'qiy olmaydi — u faqat IP manzilni ko'radi.</p><p data-lang="ru">Да. Xabarchi собран из открытого кода Telegram и использует то же шифрование. Владелец прокси не может читать сообщения — он видит только IP-адрес.</p></details>
+  <details><summary><span data-lang="uz">Bu rasmiy Telegram'mi?</span><span data-lang="ru">Это официальный Telegram?</span></summary><p data-lang="uz">Yo'q, bu norasmiy mijoz. Telegram bunday ilovalarga ruxsat beradi. Ko'rinmas rejim kabi Telegram qoidalariga zid bo'lishi mumkin funksiyalar hammaga berilmaydi: ular faqat admin ruxsat bergan hisoblarda ochiladi.</p><p data-lang="ru">Нет, это неофициальный клиент. Telegram разрешает такие приложения. Функции вроде невидимки, которые могут нарушать правила Telegram, доступны не всем: только аккаунтам, которым разрешил администратор.</p></details>
+  <details><summary><span data-lang="uz">Rasmiy Telegram'ni o'chirishim kerakmi?</span><span data-lang="ru">Нужно ли удалять официальный Telegram?</span></summary><p data-lang="uz">Yo'q. Xabarchi alohida ilova — ikkalasi ham turadi va bir hisob bilan ishlaydi.</p><p data-lang="ru">Нет. Xabarchi — отдельное приложение, оба работают с одним аккаунтом.</p></details>
+  <details><summary><span data-lang="uz">VPN'siz ulanmasa nima qilay?</span><span data-lang="ru">Что делать, если не подключается без VPN?</span></summary><p data-lang="uz">Sozlamalar → Xabarchi → Proxy ro'yxati bo'limida ishlayotgan (yashil) proxy'ni tanlang. Ro'yxat har soatda yangilanadi.</p><p data-lang="ru">Откройте Настройки → Xabarchi → Список прокси и выберите рабочий (зелёный). Список обновляется каждый час.</p></details>
   <details><summary><span data-lang="uz">Pullikmi?</span><span data-lang="ru">Это платно?</span></summary><p data-lang="uz">Yo'q, butunlay bepul.</p><p data-lang="ru">Нет, полностью бесплатно.</p></details>
 </section>
 
@@ -243,9 +244,9 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 </main>
 
 <footer><div class="wrap">
-  <div class="brand"><div class="logo">A</div>Abugram</div>
-  <p data-lang="uz">Abugram — Telegram Messenger ochiq kodiga asoslangan norasmiy mijoz (GPL). Telegram bilan rasmiy aloqasi yo'q.</p>
-  <p data-lang="ru">Abugram — неофициальный клиент на основе открытого кода Telegram Messenger (GPL). Не связан с Telegram официально.</p>
+  <div class="brand"><img class="logo" src="logo.svg" alt="">Xabarchi</div>
+  <p data-lang="uz">Xabarchi — Telegram Messenger ochiq kodiga asoslangan norasmiy mijoz (GPL). Telegram bilan rasmiy aloqasi yo'q. Telegram API'dan foydalanadi. Reklama: ilovada Xabarchi'ning o'z reklamasi va Telegram'ning homiy xabarlari ko'rinadi.</p>
+  <p data-lang="ru">Xabarchi — неофициальный клиент на основе открытого кода Telegram Messenger (GPL). Не связан с Telegram официально. Использует Telegram API. Реклама: в приложении показывается собственная реклама Xabarchi и спонсорские сообщения Telegram.</p>
   <p><a href="https://github.com/Abdulaziz0196/abugram-android">Android kodi</a> · <a href="web/SOURCE.md">Web kodi</a></p>
 </div></footer>
 

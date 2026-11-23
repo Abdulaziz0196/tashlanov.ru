@@ -1,3 +1,51 @@
+diff --git a/public/site.webmanifest b/public/site.webmanifest
+index d1a88ff..b4fff64 100644
+--- a/public/site.webmanifest
++++ b/public/site.webmanifest
+@@ -1,7 +1,7 @@
+ {
+-    "name": "Telegram Web",
+-    "short_name": "Telegram Web",
+-    "id": "/k/",
++    "name": "Xabarchi",
++    "short_name": "Xabarchi",
++    "id": "./",
+     "start_url": "./",
+     "scope": "./",
+     "scope_extensions": [
+@@ -14,7 +14,7 @@
+             "origin": "https://telegram.me"
+         }
+     ],
+-    "description": "Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.",
++    "description": "Xabarchi: a Telegram client that works where Telegram is blocked.",
+     "icons": [
+         {
+             "src": "assets/img/android-chrome-36x36.png?v=jw3mK7G9Ry",
+diff --git a/public/site_apple.webmanifest b/public/site_apple.webmanifest
+index 137f1e2..72c53e6 100644
+--- a/public/site_apple.webmanifest
++++ b/public/site_apple.webmanifest
+@@ -1,7 +1,7 @@
+ {
+-    "name": "Telegram Web",
+-    "short_name": "Telegram Web",
+-    "id": "/k/",
++    "name": "Xabarchi",
++    "short_name": "Xabarchi",
++    "id": "./",
+     "start_url": "./",
+     "scope": "./",
+     "scope_extensions": [
+@@ -14,7 +14,7 @@
+             "origin": "https://telegram.me"
+         }
+     ],
+-    "description": "Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.",
++    "description": "Xabarchi: a Telegram client that works where Telegram is blocked.",
+     "icons": [
+         {
+             "src": "assets/img/icon_square_192.png?v=jw3mK7G9Ry",
 diff --git a/src/components/abugramMiniPlayer.ts b/src/components/abugramMiniPlayer.ts
 new file mode 100644
 index 0000000..276e7c5
@@ -198,10 +246,10 @@ index 6c7c795..91910fa 100644
    private onSomethingOpenInsideChange = (force = false) => {
 diff --git a/src/components/sidebarLeft/tabs/abugram.tsx b/src/components/sidebarLeft/tabs/abugram.tsx
 new file mode 100644
-index 0000000..427eadd
+index 0000000..64ecc7a
 --- /dev/null
 +++ b/src/components/sidebarLeft/tabs/abugram.tsx
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,141 @@
 +import CheckboxFieldTsx from '@components/checkboxFieldTsx';
 +import Row from '@components/rowTsx';
 +import Section from '@components/section';
@@ -307,9 +355,11 @@ index 0000000..427eadd
 +        <Toggle key="ghostStories" title="Abugram.GhostStories" subtitle="Abugram.GhostStories.Sub" />
 +      </Section>
 +      </Show>
++      <Show when={abugramAccess().ghost}>
 +      <Section name="Abugram.Messages" caption="Abugram.Messages.Info">
 +        <Toggle key="keepDeleted" title="Abugram.KeepDeleted" subtitle="Abugram.KeepDeleted.Sub" />
 +      </Section>
++      </Show>
 +      <Section name="Abugram.Look">
 +        <Toggle key="hideStories" title="Abugram.HideStories" subtitle="Abugram.HideStories.Sub" />
 +        <Toggle key="showSeconds" title="Abugram.ShowSeconds" subtitle="Abugram.ShowSeconds.Sub" />
@@ -332,6 +382,9 @@ index 0000000..427eadd
 +      </Section>
 +      <Section name="Abugram.Calls">
 +        <Toggle key="confirmCalls" title="Abugram.ConfirmCalls" subtitle="Abugram.ConfirmCalls.Sub" />
++      </Section>
++      <Section name="Abugram.Version">
++        <Row><Row.Title>{'Xabarchi ' + (import.meta.env.VITE_ABUGRAM_VERSION || '')}</Row.Title></Row>
 +      </Section>
 +    </>
 +  );
@@ -554,13 +607,14 @@ index 8b2be75..acc97e7 100644
    private drawCroppedFrame() {
      const v = this.drawVideo;
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..2a1efa5 100644
+index 9601966..3d0b489 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
-@@ -1,4 +1,51 @@
+@@ -1,4 +1,52 @@
  const lang = {
-+  'Abugram.Title': 'Abugram',
-+  'Abugram.Settings.Row': 'Abugram',
++  'Abugram.Title': 'Xabarchi',
++  'Abugram.Version': 'Versiya · Версия',
++  'Abugram.Settings.Row': 'Xabarchi',
 +  'Abugram.Ghost': 'Ko\'rinmas rejim · Режим невидимки',
 +  'Abugram.Ghost.Info': 'Bu sozlamalar Telegram qoidalariga zid bo\'lishi mumkin: ehtiyot bo\'lib ishlating. · Используйте осторожно.',
 +  'Abugram.GhostRead': '"O\'qildi" belgisini yubormaslik',
@@ -611,10 +665,10 @@ index 9601966..2a1efa5 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/access.ts b/src/lib/abugram/access.ts
 new file mode 100644
-index 0000000..1c15c60
+index 0000000..aaba77e
 --- /dev/null
 +++ b/src/lib/abugram/access.ts
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,81 @@
 +/**
 + * Abugram: what this account may use, as the Abugram admin set it (relay /access): ghost mode for the accounts
 + * allowed it, the admin page link for admins. Everyone else gets neither; their ghost switches have no effect.
@@ -639,17 +693,16 @@ index 0000000..1c15c60
 +  const base = relayBase();
 +  const uid = rootScope.myId ? rootScope.myId.toUserId() : 0;
 +  if(!base || !uid) return;
-+  // * counted once a day as an Abugram user (the relay keeps only a hash of the ID) - for the user counts on the stats page
-+  const helloKey = 'abugram.hello.' + uid;
-+  const today = new Date().toISOString().slice(0, 10);
++  // * counted as an Abugram user with the app's version; every start of the app is one visit (the relay keeps only a hash of the ID)
++  const version: string = import.meta.env.VITE_ABUGRAM_VERSION || '';
 +  let said: string;
 +  try {
-+    said = localStorage.getItem(helloKey);
++    said = sessionStorage.getItem('abugram.hello');
 +  } catch(err) {}
-+  if(said !== today) {
-+    fetch(base + '/hello', {method: 'POST', body: JSON.stringify({uid, platform: 'web'}), keepalive: true}).then(() => {
++  if(said !== String(uid)) {
++    fetch(base + '/hello', {method: 'POST', body: JSON.stringify({uid, platform: 'web', version}), keepalive: true}).then(() => {
 +      try {
-+        localStorage.setItem(helloKey, today);
++        sessionStorage.setItem('abugram.hello', String(uid));
 +      } catch(err) {}
 +    }).catch(() => {});
 +  }
@@ -659,11 +712,42 @@ index 0000000..1c15c60
 +    const result = await response.json();
 +    const value: AbugramAccess = {ghost: !!result.ghost, admin: !!result.admin};
 +    setAccess(value);
++    checkAbugramGate(base, !!result.pro || !!result.admin);
 +    // * the request filter (in the MTProto worker) honours the ghost switches only while this is set
 +    if(!!appSettings.abugram?.ghostAllowed !== value.ghost) {
 +      if(appSettings.abugram) setAppSettings('abugram', 'ghostAllowed', value.ghost);
 +      else setAppSettings('abugram', {ghostAllowed: value.ghost});
 +    }
++  } catch(err) {}
++}
++
++let gateShown = false;
++
++/**
++ * What the Abugram admin set in the relay's /config: in paid mode an account without a paid period (and not admin) gets a
++ * full-screen notice with a button to the Abugram site. Off while the app is free: nothing is shown.
++ */
++async function checkAbugramGate(base: string, pro: boolean) {
++  if(gateShown || pro) return;
++  try {
++    const config = await (await fetch(base + '/config', {cache: 'no-store'})).json();
++    if(!config.paid) return;
++    gateShown = true;
++    const box = document.createElement('div');
++    box.style.cssText = 'position:fixed;inset:0;z-index:100000;background:var(--surface-color,#fff);color:var(--primary-text-color,#000);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;font-size:18px';
++    const title = document.createElement('div');
++    title.style.cssText = 'font-size:24px;font-weight:700';
++    title.textContent = config.payTitle || 'Obuna kerak';
++    const text = document.createElement('div');
++    text.textContent = config.payMessage || '';
++    const button = document.createElement('a');
++    button.textContent = 'Ochish';
++    button.href = /^https:\/\//.test(config.url || '') ? config.url : 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/';
++    button.target = '_blank';
++    button.rel = 'noopener';
++    button.style.cssText = 'padding:12px 28px;border-radius:12px;background:var(--primary-color,#6A5CFF);color:#fff;text-decoration:none;font-weight:600';
++    box.append(title, text, button);
++    document.body.append(box);
 +  } catch(err) {}
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
@@ -1060,7 +1144,7 @@ index 8a0e8af..02d7de8 100644
        _: 'updateShort',
        update
 diff --git a/src/lib/appManagers/appMessagesManager.ts b/src/lib/appManagers/appMessagesManager.ts
-index af7e961..7f2e9ad 100644
+index af7e961..6631a44 100644
 --- a/src/lib/appManagers/appMessagesManager.ts
 +++ b/src/lib/appManagers/appMessagesManager.ts
 @@ -6,6 +6,7 @@
@@ -1084,7 +1168,7 @@ index af7e961..7f2e9ad 100644
      } = {}
    ) => {
 +    // * Abugram: "keep deleted messages" leaves what others delete on this device, until the chat is loaded again
-+    if(!(update as any).abugramLocal && getAbugramSettings(this.appStateManager.getStateNow()?.settings).keepDeleted) {
++    if(!(update as any).abugramLocal && (() => { const a = getAbugramSettings(this.appStateManager.getStateNow()?.settings); return a.keepDeleted && a.ghostAllowed; })()) {
 +      return new Set<number>();
 +    }
 +
@@ -1293,7 +1377,7 @@ index fa10ae2..24265b1 100644
    };
  }
 diff --git a/src/lib/settingsSearch/generated.ts b/src/lib/settingsSearch/generated.ts
-index 02c16ac..1ad5469 100644
+index 02c16ac..9ed301c 100644
 --- a/src/lib/settingsSearch/generated.ts
 +++ b/src/lib/settingsSearch/generated.ts
 @@ -11,6 +11,7 @@ const generated: GeneratedSettingsSearchData = {
@@ -1304,7 +1388,7 @@ index 02c16ac..1ad5469 100644
      {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
      {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
      {id: 'AppStickersAndEmojiTab', parentId: 'AppSettingsTab', titleLangKey: 'StickersName', icon: 'reactions_filled'},
-@@ -68,6 +69,26 @@ const generated: GeneratedSettingsSearchData = {
+@@ -68,6 +69,27 @@ const generated: GeneratedSettingsSearchData = {
      {id: 'AppTwoStepVerificationHintTab', parentId: 'AppTwoStepVerificationReEnterPasswordTab', titleLangKey: 'TwoStepAuth.SetupHintTitle'},
    ],
    entries: [
@@ -1328,6 +1412,7 @@ index 02c16ac..1ad5469 100644
 +    {id: 'AppAbugramTab:Abugram.Tabs', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Tabs'},
 +    {id: 'AppAbugramTab:Abugram.Tabs.Create', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create'},
 +    {id: 'AppAbugramTab:Abugram.Tabs.Create.Sub', sectionId: 'AppAbugramTab', kind: 'row', titleLangKey: 'Abugram.Tabs.Create.Sub'},
++    {id: 'AppAbugramTab:Abugram.Version', sectionId: 'AppAbugramTab', kind: 'subsection', titleLangKey: 'Abugram.Version'},
      {id: 'AppActiveSessionsTab:AuthSessions.DeviceName', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.DeviceName'},
      {id: 'AppActiveSessionsTab:AuthSessions.IncompleteAttempts', sectionId: 'AppActiveSessionsTab', kind: 'subsection', titleLangKey: 'AuthSessions.IncompleteAttempts'},
      {id: 'AppActiveSessionsTab:AuthSessions.RenameDevice', sectionId: 'AppActiveSessionsTab', kind: 'row', titleLangKey: 'AuthSessions.RenameDevice'},
@@ -1434,10 +1519,10 @@ index 5a42652..2b7df9a 100644
      return this.apiManager.invokeApi('messages.getSuggestedDialogFilters');
    }
 diff --git a/src/scss/partials/_leftSidebar.scss b/src/scss/partials/_leftSidebar.scss
-index 6e592cb..13f422a 100644
+index 6e592cb..a3e75b9 100644
 --- a/src/scss/partials/_leftSidebar.scss
 +++ b/src/scss/partials/_leftSidebar.scss
-@@ -1549,3 +1549,236 @@
+@@ -1549,3 +1549,269 @@
  #chats-archived-container {
    background-color: var(--surface-color);
  }
@@ -1674,6 +1759,39 @@ index 6e592cb..13f422a 100644
 +    color: var(--secondary-text-color);
 +  }
 +}
++
++// * Xabarchi: the name and logo above the login card, and the notice that this is an unofficial client of the Telegram API
++body.has-auth-pages {
++  &::before {
++    content: 'Xabarchi';
++    position: fixed;
++    z-index: 5;
++    top: max(12px, env(safe-area-inset-top));
++    left: 16px;
++    padding-left: 44px;
++    height: 36px;
++    line-height: 36px;
++    font-size: 20px;
++    font-weight: 700;
++    color: #fff;
++    background: url('data:image/png;base64,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') no-repeat left center / 36px 36px;
++    pointer-events: none;
++  }
++
++  &::after {
++    content: 'Xabarchi — norasmiy mijoz, Telegram API orqali ishlaydi. Telegram bilan rasmiy aloqasi yo\'q.';
++    position: fixed;
++    z-index: 5;
++    left: 16px;
++    right: 16px;
++    bottom: max(12px, env(safe-area-inset-bottom));
++    text-align: center;
++    font-size: 12px;
++    color: rgba(255, 255, 255, .9);
++    text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
++    pointer-events: none;
++  }
++}
 diff --git a/src/stores/appSettings.ts b/src/stores/appSettings.ts
 index 06e248f..7795f64 100644
 --- a/src/stores/appSettings.ts
@@ -1706,8 +1824,11 @@ index 06e248f..7795f64 100644
  let silent = false;
  const setAppSettings: SetStoreFunction<StateSettings, Promise<void>> = (...args: any[]) => {
    const keys = args.slice(0, -1);
+diff --git a/src/tests/.keep b/src/tests/.keep
+new file mode 100644
+index 0000000..e69de29
 diff --git a/vite.config.ts b/vite.config.ts
-index 497c30e..c960049 100644
+index 497c30e..0f0682c 100644
 --- a/vite.config.ts
 +++ b/vite.config.ts
 @@ -69,8 +69,8 @@ if(isDEV) {
@@ -1716,8 +1837,8 @@ index 497c30e..c960049 100644
    context: {
 -    title: 'Telegram Web',
 -    description: 'Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.',
-+    title: 'Abugram',
-+    description: 'Abugram: a Telegram client that works where Telegram is blocked.',
++    title: 'Xabarchi',
++    description: 'Xabarchi: a Telegram client that works where Telegram is blocked.',
      url: 'https://web.telegram.org/k/',
      origin: 'https://web.telegram.org/'
    }
