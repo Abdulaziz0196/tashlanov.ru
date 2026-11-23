@@ -165,6 +165,7 @@ public class MainActivity extends Activity {
                 o.put("zoom", sp.getInt("zoom", 100));
                 o.put("auto", sp.getBoolean("auto", true));
                 o.put("mode", mode());
+                o.put("version", appVersion());
                 o.put("eco", sp.getBoolean("eco", true));
                 o.put("torReady", tor != null && tor.isReady());
                 o.put("bridges", sp.getString("bridges_custom", ""));
@@ -633,6 +634,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onStop() { super.onStop(); CookieManager.getInstance().flush(); }
+
+    String appVersion() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return ""; }
+    }
 
     /** Akkauntga kirilgan bo'lsa — lenta, aks holda to'g'ridan-to'g'ri login sahifasi ("ilovani oching" sahifasisiz). */
     String startUrl() {
