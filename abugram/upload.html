@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Xabarchi yuklash testi</title>
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--text:#f2f2f7;--muted:#a3a3b5;--ok:#34c759;--bad:#ff453a}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--text:#14141c;--muted:#5d5d6e}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 6px}p{color:var(--muted);margin:0 0 14px}
+.row{background:var(--card);border-radius:10px;padding:9px 12px;margin:6px 0;display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+button{width:100%;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:600;color:#fff;background:linear-gradient(90deg,#6A5CFF,#00D5FF);margin:6px 0 14px}
+</style></head><body><main>
+<h1>Xabarchi yuklash testi</h1>
+<p><b>VPN'ni o'chiring.</b> "Boshlash"ni bosing, 1–2 daqiqa kuting va natijani skrinshot qilib yuboring. Avval Wi-Fi'da, keyin mobil internetda qiling.</p>
+<button id="go">▶ Boshlash</button>
+<div id="list"></div><p id="done"></p>
+</main>
+<script>
+var RELAY='https://winter-cake-2d11.tashlanow.workers.dev';
+var sizes=[4,8,12,16,24,32,64,128,256,512,1024];
+var list=document.getElementById('list');
+function pad(n){var s='{"ids":[],"pad":"';var fill=Math.max(0,n*1024-s.length-2);return s+new Array(fill+1).join('x')+'"}';}
+function row(t){var d=document.createElement('div');d.className='row';d.innerHTML='<span></span><span></span>';d.children[0].textContent=t;list.appendChild(d);return d.children[1];}
+function one(kb,tag){
+  return new Promise(function(done){
+    var el=row(tag+' '+kb+' KB'),t0=performance.now(),ctrl=new AbortController(),fin=false;
+    var timer=setTimeout(function(){if(fin)return;fin=true;ctrl.abort();el.className='bad';el.textContent='❌ 20 s javob yo\'q';done();},20000);
+    fetch(RELAY+'/ads/seen',{method:'POST',body:pad(kb),signal:ctrl.signal,headers:{'content-type':'application/json'},cache:'no-store'}).then(function(r){return r.text();}).then(function(){
+      if(fin)return;fin=true;clearTimeout(timer);var ms=performance.now()-t0;
+      el.className='ok';el.textContent='✅ '+Math.round(ms)+' ms · '+Math.round(kb/(ms/1000))+' KB/s';done();
+    }).catch(function(e){if(fin)return;fin=true;clearTimeout(timer);el.className='bad';el.textContent='❌ '+((e&&e.name)||'xato');done();});
+  });
+}
+document.getElementById('go').onclick=function(){
+  this.disabled=true;list.innerHTML='';
+  var chain=Promise.resolve();
+  sizes.forEach(function(kb){chain=chain.then(function(){return one(kb,'⬆');});});
+  chain=chain.then(function(){return one(4,'⬆ qayta');}).then(function(){return one(64,'⬆ qayta');});
+  chain.then(function(){document.getElementById('done').textContent='✅ Tayyor. Skrinshot qilib yuboring.';});
+};
+</script></body></html>
