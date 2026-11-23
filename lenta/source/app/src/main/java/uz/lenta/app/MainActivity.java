@@ -76,6 +76,7 @@ public class MainActivity extends Activity {
     TextView loaderTitle, loaderTxt;
     ProgressBar topBar;
     boolean committed;
+    long lastBack;
     static final long LOAD_LIMIT_MS = 25000;
     final Runnable watchdog = this::onLoadTooSlow;
     boolean pendingOpen;
@@ -377,6 +378,9 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         // WebView belgisini olib tashlaymiz, aks holda sayt "ilovani yuklab oling" deb qayta-qayta so'raydi
         s.setUserAgentString(s.getUserAgentString().replace("; wv", "").replaceAll("Version/\\S+ ", ""));
+        // "X-Requested-With: uz.lenta.app" sarlavhasini o'chiramiz — Instagram bizni oddiy brauzer deb ko'rsin
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST))
+            androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(s, Collections.<String>emptySet());
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(ig, true);
 
@@ -618,8 +622,13 @@ public class MainActivity extends Activity {
             return;
         }
         if (ig.getVisibility() == View.VISIBLE && home.getVisibility() != View.VISIBLE) {
-            if (ig.canGoBack()) ig.goBack();
-            else showHome();
+            if (ig.canGoBack()) { ig.goBack(); return; }
+            // Instagram'ning bosh sahifasida: ilovadan chiqib ketmaslik uchun ikki marta bosish kerak,
+            // shunda ham ilova yopilmaydi — orqa fonga o'tadi va qaytganda shu joydan davom etadi
+            long now = System.currentTimeMillis();
+            if (now - lastBack < 2000) { moveTaskToBack(true); return; }
+            lastBack = now;
+            android.widget.Toast.makeText(this, "Chiqish uchun yana bir marta bosing", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         super.onBackPressed();
