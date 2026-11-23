@@ -39,11 +39,23 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   <h2>Statistika</h2>
   <div class="card">
     <div class="stats" style="margin-top:0;flex-wrap:wrap;gap:18px;font-size:15px">
-      <span>Jami: <b id="sTotal">—</b></span><span>Bugun: <b id="sToday">—</b></span><span>7 kun: <b id="s7">—</b></span><span>30 kun: <b id="s30">—</b></span>
-      <span>Veb: <b id="sWeb">—</b></span><span>Android: <b id="sAndroid">—</b></span>
+      <span>Jami odam: <b id="sTotal">—</b></span><span>Bugun: <b id="sToday">—</b></span><span>7 kun: <b id="s7">—</b></span><span>30 kun: <b id="s30">—</b></span><span>Ikkalasida ham: <b id="sBoth">—</b></span>
     </div>
+    <table id="pt" style="width:100%;margin-top:12px;font-size:14px;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Platforma</th><th>Jami</th><th>Bugun</th><th>7 kun</th><th>30 kun</th><th>Bugungi kirishlar</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="ad-text" style="margin:8px 0 0">Bir odam telefonda ham, vebda ham bo'lsa, har ikkala platformada sanaladi, "Jami odam"da esa bir marta. "Kirishlar" — ilova ochilgan marta.</p>
     <div class="row" style="margin-top:12px"><a href="stats.html" target="_blank" rel="noopener"><button class="ghost" type="button">Reklama beruvchilar uchun sahifa ↗</button></a></div>
     <p class="ad-text" style="margin:8px 0 0">Bu havolani reklama beruvchilarga yuborasiz: abdulaziz0196.github.io/tashlanov.ru/abugram/stats.html</p>
+  </div>
+  <h2>Versiyalar</h2>
+  <div class="card">
+    <div class="stats" style="margin-top:0;flex-wrap:wrap;gap:18px;font-size:15px">
+      <span>Android (oxirgi): <b id="vAndroid">—</b></span><span>Veb (oxirgi): <b id="vWeb">—</b></span>
+    </div>
+    <p class="ad-text" style="margin:8px 0 0">Android va veb bir xil raqam bilan chiqariladi. Odamlar hozir ishlatayotgan versiyalar:</p>
+    <div id="vUsed" class="ad-text"></div>
   </div>
   <h2 id="formTitle">Yangi reklama</h2>
   <div class="card">
@@ -84,7 +96,7 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
 <script>
 var RELAY='https://winter-cake-2d11.tashlanow.workers.dev';
 var $=function(id){return document.getElementById(id);};
-var pw='';try{pw=localStorage.getItem('abugram-admin')||'';}catch(e){}
+var pw='';try{pw=sessionStorage.getItem('abugram-admin')||'';localStorage.removeItem('abugram-admin');}catch(e){}
 function api(method,path,body){
   return fetch(RELAY+path,{method:method,headers:Object.assign({'authorization':'Bearer '+pw},body?{'content-type':'application/json'}:{}),body:body?JSON.stringify(body):undefined})
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
@@ -92,11 +104,21 @@ function api(method,path,body){
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
 function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats(); }
 function loadStats(){
-  fetch(RELAY+'/stats',{cache:'no-store'}).then(function(r){return r.json();}).then(function(s){
-    var f=function(n){return (n||0).toLocaleString('ru-RU');};
-    $('sTotal').textContent=f(s.total);$('sToday').textContent=f(s.today);$('s7').textContent=f(s.d7);$('s30').textContent=f(s.d30);
-    $('sWeb').textContent=f((s.platforms||{}).web);$('sAndroid').textContent=f((s.platforms||{}).android);
-  }).catch(function(){});
+  var f=function(n){return (n||0).toLocaleString('ru-RU');};
+  api('GET','/admin/stats').then(function(s){
+    $('sTotal').textContent=f(s.total);$('sToday').textContent=f(s.today);$('s7').textContent=f(s.d7);$('s30').textContent=f(s.d30);$('sBoth').textContent=f(s.both);
+    var tb=$('pt').querySelector('tbody');tb.innerHTML='';
+    [['web','Veb (iPhone, kompyuter)'],['android','Android']].forEach(function(p){
+      var d=(s.byPlatform||{})[p[0]]||{},tr=document.createElement('tr');
+      [p[1],f(d.total),f(d.today),f(d.d7),f(d.d30),f((s.visitsToday||{})[p[0]])].forEach(function(t,i){var td=document.createElement('td');td.textContent=t;td.style.padding='6px 8px 6px 0';if(i)td.style.textAlign='center';tr.appendChild(td);});
+      tb.appendChild(tr);
+    });
+    var used=$('vUsed');used.textContent='';
+    (s.versions||[]).forEach(function(v){var d=document.createElement('div');d.textContent=(v.platform==='web'?'Veb':'Android')+' '+v.version+' — '+f(v.n)+' odam';used.appendChild(d);});
+    if(!(s.versions||[]).length)used.textContent='Hali ma\'lumot yo\'q.';
+  }).catch(function(e){var tb=$('pt').querySelector('tbody');tb.innerHTML='';var tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent=e.message;tr.appendChild(td);tb.appendChild(tr);});
+  fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest').then(function(r){return r.json();}).then(function(r){$('vAndroid').textContent=(r.name||'?').replace(/^Abugram for Android\s*/,'')+' · '+(r.published_at||'').slice(0,10);}).catch(function(){$('vAndroid').textContent='?';});
+  fetch('web/abugram-version.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(r){$('vWeb').textContent=r.version+' · '+(r.built||'').slice(0,10);}).catch(function(){$('vWeb').textContent='?';});
 }
 function loadUsers(){
   api('GET','/admin/access').then(function(j){
@@ -140,11 +162,11 @@ function fill(ad){
 }
 function preview(){var u=$('image').value.trim();$('prev').hidden=!/^https:\/\//.test(u);if(!$('prev').hidden)$('prev').src=u;}
 $('image').oninput=preview;
-$('enter').onclick=function(){pw=$('pw').value.trim();api('GET','/admin/ads').then(function(){try{localStorage.setItem('abugram-admin',pw);}catch(e){}showPanel();}).catch(function(e){msg($('loginMsg'),e.message);});};
+$('enter').onclick=function(){pw=$('pw').value.trim();api('GET','/admin/ads').then(function(){try{sessionStorage.setItem('abugram-admin',pw);}catch(e){}showPanel();}).catch(function(e){msg($('loginMsg'),e.message);});};
 $('save').onclick=function(){
   var body={id:$('id').value?Number($('id').value):undefined,title:$('title').value.trim(),text:$('text').value.trim(),url:$('url').value.trim(),image:$('image').value.trim(),active:$('active').checked?1:0,kind:$('kind').value,amount:Number($('amount').value)||0};
   if(!body.title&&!body.text){msg($('formMsg'),'Sarlavha yoki matn yozing');return;}
-  if(body.url&&!/^https?:\/\//.test(body.url)){msg($('formMsg'),'Havola https:// bilan boshlansin');return;}
+  if(body.url&&!/^https:\/\//.test(body.url)){msg($('formMsg'),'Havola https:// bilan boshlansin');return;}
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
 };
 $('reset').onclick=function(){fill(null);};
@@ -154,6 +176,6 @@ $('usave').onclick=function(){
   api('POST','/admin/access',{uid:Number(uid),name:$('uname').value.trim(),ghost:$('ughost').checked?1:0,admin:$('uadmin').checked?1:0})
     .then(function(){msg($('umsg'),'Saqlandi ✅',true);$('uid').value='';$('uname').value='';loadUsers();}).catch(function(e){msg($('umsg'),e.message);});
 };
-$('logout').onclick=function(){try{localStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
+$('logout').onclick=function(){try{sessionStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
 if(pw){api('GET','/admin/ads').then(showPanel).catch(function(){});}
 </script></body></html>
