@@ -391,7 +391,9 @@ public class MainActivity extends Activity {
                 // "ilovani oching" havolalari (intent:, instagram:, Play Market) — e'tiborsiz qoldiramiz
                 if (sch.equals("intent") || sch.equals("instagram") || sch.equals("market") || h.endsWith("play.google.com") || h.endsWith("apps.apple.com"))
                     return true;
-                openExternal(u);
+                // boshqa saytlarga havolalar ham ilova ichida ochiladi (ilovadan chiqib ketmaslik uchun); "Orqaga" bilan qaytiladi
+                if (sch.equals("https") || sch.equals("http")) return false;
+                openExternal(u); // mailto:, tel: va h.k. — telefonning o'z ilovasida
                 return true;
             }
 
@@ -434,7 +436,8 @@ public class MainActivity extends Activity {
                 // avto rejim: boshqa proksiga o'tib, sahifani qayta yuklaymiz (Telegram'dagi kabi)
                 if (mode().equals("auto") && autoRetries < 5) {
                     autoRetries++;
-                    px.rotate();
+                    // birinchi xatoda o'sha proksi bilan qayta urinamiz (IP o'zgarmasin), keyin almashtiramiz
+                    if (autoRetries > 1) px.rotate();
                     committed = false;
                     showLoader("Boshqa proksiga o'tilmoqda… (" + autoRetries + "/5)", proxyInfo());
                     ui.removeCallbacks(watchdog);

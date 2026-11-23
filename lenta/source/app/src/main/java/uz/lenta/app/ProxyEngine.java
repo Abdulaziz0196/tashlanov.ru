@@ -124,6 +124,9 @@ class ProxyEngine {
     private final Map<String, String> dns = new ConcurrentHashMap<>();
     private final Map<String, Up> byKey = new ConcurrentHashMap<>();
     private volatile Up primary;
+    /** Oxirgi ishlagan ("yopishqoq") proksi — Instagram uchun IP o'zgarmasligi muhim, aks holda "shubhali kirish". */
+    private volatile String stickyKey;
+    private volatile boolean stickyTesting;
     private volatile boolean running, ready, searching, readyScheduled;
     private ServerSocket server;
     private int localPort;
@@ -176,6 +179,7 @@ class ProxyEngine {
             if (pending.isEmpty()) loadCandidates();
             total = tested.get() + pending.size();
             report(true);
+            if (stickyKey != null && !ready) { stickyTesting = true; io.execute(this::trySticky); }
             ExecutorService tp = Executors.newFixedThreadPool(PARALLEL);
             for (int i = 0; i < PARALLEL; i++) {
                 tp.execute(() -> {
@@ -200,10 +204,34 @@ class ProxyEngine {
             h.post(() -> l.onError("Ishlaydigan proksi topilmadi. Internetni tekshiring, Wi-Fi/mobil internetni almashtirib qayta oching yoki Tor rejimini sinab ko'ring."));
     }
 
+    /** Oxirgi ishlagan proksini birinchi bo'lib (2 marta) tekshiradi; ishlasa — darhol o'shani ishlatamiz. */
+    private void trySticky() {
+        try {
+            String k = stickyKey;
+            if (k == null || ready) return;
+            Up u = byKey.get(k);
+            if (u == null || !pending.remove(u)) return;
+            for (int i = 0; i < 2 && running; i++) {
+                long ms = test(u);
+                tested.incrementAndGet();
+                if (ms > 0) {
+                    u.ms = ms;
+                    primary = u; // boshqalari tezroq bo'lsa ham — oldingi IP saqlanadi
+                    if (!good.contains(u)) addGood(u);
+                    return;
+                }
+            }
+        } finally {
+            stickyTesting = false;
+        }
+    }
+
     private void loadCandidates() {
         List<Up> list = new ArrayList<>();
-        // 1) oldin ishlaganlar — eng birinchi
-        list.addAll(parse(readFile(cacheFile()), SOCKS5));
+        // 1) oldin ishlaganlar — eng birinchi; birinchi qatordagisi "yopishqoq" proksi
+        List<Up> cached = parse(readFile(cacheFile()), SOCKS5);
+        if (!cached.isEmpty() && stickyKey == null) stickyKey = cached.get(0).key();
+        list.addAll(cached);
         // 2) saytdagi tekshirilgan ro'yxat (har bir necha soatda yangilanadi)
         List<Up> site = parse(fetch(SITE_LIST + "?t=" + (System.currentTimeMillis() / 900000)), SOCKS5);
         list.addAll(site);
@@ -267,15 +295,20 @@ class ProxyEngine {
     private void addGood(Up u) {
         good.add(u);
         sortGood();
-        if (primary == null || u.ms < primary.ms * 0.6) primary = good.get(0);
+        // asosiy proksi faqat bo'sh bo'lsa tanlanadi — tezrog'i topilsa ham IP'ni almashtirmaymiz
+        if (ready && primary == null) primary = u;
         if (!ready && !readyScheduled) {
             readyScheduled = true;
-            // birinchisi topildi: yana bir lahza kutib, eng tezini tanlaymiz
-            h.postDelayed(() -> {
-                if (!good.isEmpty()) primary = good.get(0);
-                ready = true;
-                saveGood();
-                l.onReady(localPort);
+            // birinchisi topildi: oldingi proksi tekshiruvi tugashini va yana bir lahzani kutib, tanlaymiz
+            h.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (stickyTesting) { h.postDelayed(this, 700); return; }
+                    if (primary == null && !good.isEmpty()) primary = good.get(0);
+                    ready = true;
+                    saveGood();
+                    l.onReady(localPort);
+                }
             }, 1500);
         }
     }
@@ -291,6 +324,7 @@ class ProxyEngine {
         good.remove(u);
         if (primary == u) {
             primary = good.isEmpty() ? null : good.get(0);
+            saveGood();
             final Up p = primary;
             h.post(() -> l.onSwitch(p == null ? "" : p.host));
         }
@@ -384,13 +418,18 @@ class ProxyEngine {
             for (Up u : order) {
                 try {
                     up = tunnel(u, host, port, forced != null ? TEST_TIMEOUT : 8000);
-                    if (forced == null && u != primary) {
+                    u.fails.set(0);
+                    // asosiy proksi bir marta xato qilsa — faqat shu ulanish uchun zaxiradan foydalanamiz;
+                    // asosiysini faqat u butunlay ishlamay qolganda (ro'yxatdan chiqqanda) almashtiramiz
+                    Up p = primary;
+                    if (forced == null && u != p && (p == null || !good.contains(p))) {
                         primary = u;
+                        saveGood();
                         h.post(() -> l.onSwitch(u.host));
                     }
                     break;
                 } catch (Exception e) {
-                    if (forced == null && u.fails.incrementAndGet() >= 2) drop(u);
+                    if (forced == null && u.fails.incrementAndGet() >= (u == primary ? 4 : 2)) drop(u);
                 }
             }
             if (up == null) {
