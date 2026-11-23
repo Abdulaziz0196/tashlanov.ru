@@ -21,6 +21,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.content.res.ColorStateList;
+import android.view.Gravity;
+import android.util.TypedValue;
 
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
@@ -64,6 +71,13 @@ public class MainActivity extends Activity {
     ProxyEngine px;
     int autoRetries;
     boolean hadError;
+    // Instagram yuklanayotganda ko'rinadigan oyna (qora ekran o'rniga) va "osilib qolish" nazorati
+    LinearLayout loader;
+    TextView loaderTitle, loaderTxt;
+    ProgressBar topBar;
+    boolean committed;
+    static final long LOAD_LIMIT_MS = 25000;
+    final Runnable watchdog = this::onLoadTooSlow;
     boolean pendingOpen;
 
     @Override
@@ -80,6 +94,14 @@ public class MainActivity extends Activity {
 
         ViewGroup.LayoutParams mp = new ViewGroup.LayoutParams(-1, -1);
         root.addView(ig, mp);
+        loader = buildLoader();
+        loader.setVisibility(View.GONE);
+        root.addView(loader, mp);
+        topBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        topBar.setMax(100);
+        topBar.setProgressTintList(ColorStateList.valueOf(0xFFF7A70B));
+        topBar.setVisibility(View.GONE);
+        root.addView(topBar, new FrameLayout.LayoutParams(-1, dp(4), Gravity.TOP));
         root.addView(home, mp);
         ig.setVisibility(View.GONE);
         setContentView(root);
@@ -269,8 +291,15 @@ public class MainActivity extends Activity {
         boolean reload = !igLoaded || !proxy.equals(loadedProxy);
         loadedProxy = proxy;
         authTries = 0;
-        if (reload) { ig.loadUrl(IG); igLoaded = true; }
-        else ig.evaluateJavascript(themeJs(), null);
+        if (reload) {
+            committed = false;
+            autoRetries = 0;
+            showLoader("Instagram yuklanmoqda…", proxyInfo());
+            ig.loadUrl(IG);
+            igLoaded = true;
+            ui.removeCallbacks(watchdog);
+            ui.postDelayed(watchdog, LOAD_LIMIT_MS);
+        } else ig.evaluateJavascript(themeJs(), null);
         ig.setVisibility(View.VISIBLE);
         ig.setAlpha(0f);
         ig.animate().alpha(1f).setDuration(350).start();
@@ -363,7 +392,22 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageStarted(WebView v, String url, android.graphics.Bitmap icon) {
+                topBar.setProgress(5);
+                topBar.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onPageCommitVisible(WebView v, String url) {
+                // sahifa ko'rina boshladi — yuklanish oynasini yopamiz
+                committed = true;
+                ui.removeCallbacks(watchdog);
+                hideLoader();
+            }
+
+            @Override
             public void onPageFinished(WebView v, String url) {
+                topBar.setVisibility(View.GONE);
                 authTries = 0;
                 if (!hadError) autoRetries = 0;
                 hadError = false;
@@ -385,8 +429,11 @@ public class MainActivity extends Activity {
                 if (mode().equals("auto") && autoRetries < 5) {
                     autoRetries++;
                     px.rotate();
-                    home("onPxSwitch(" + JSONObject.quote(px.current()) + ")");
-                    ui.postDelayed(v::reload, 400);
+                    committed = false;
+                    showLoader("Boshqa proksiga o'tilmoqda… (" + autoRetries + "/5)", proxyInfo());
+                    ui.removeCallbacks(watchdog);
+                    ui.postDelayed(watchdog, LOAD_LIMIT_MS);
+                    ui.postDelayed(() -> v.loadUrl(IG), 400);
                     return;
                 }
                 toHomeWithErr("Ulanib bo'lmadi: " + e.getDescription());
@@ -394,6 +441,14 @@ public class MainActivity extends Activity {
         });
 
         ig.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView v, int p) {
+                topBar.setProgress(Math.max(5, p));
+                if (p >= 100) topBar.setVisibility(View.GONE);
+                if (!committed && loader.getVisibility() == View.VISIBLE)
+                    loaderTxt.setText(proxyInfo() + (p > 10 ? "\nYuklandi: " + p + "%" : ""));
+            }
+
             @Override
             public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams p) {
                 if (fileCb != null) fileCb.onReceiveValue(null);
@@ -405,7 +460,95 @@ public class MainActivity extends Activity {
         });
     }
 
+    // ---------------- yuklanish oynasi ----------------
+    int dp(int v) { return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()); }
+
+    LinearLayout buildLoader() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setGravity(Gravity.CENTER);
+        l.setBackgroundColor(Color.BLACK);
+        l.setPadding(dp(32), dp(32), dp(32), dp(32));
+        l.setClickable(true);
+        ProgressBar spin = new ProgressBar(this);
+        spin.setIndeterminateTintList(ColorStateList.valueOf(0xFFF7A70B));
+        l.addView(spin, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        loaderTitle = new TextView(this);
+        loaderTitle.setTextColor(0xFFF5F5F5);
+        loaderTitle.setTextSize(19);
+        loaderTitle.setGravity(Gravity.CENTER);
+        loaderTitle.setPadding(0, dp(20), 0, dp(8));
+        l.addView(loaderTitle);
+        loaderTxt = new TextView(this);
+        loaderTxt.setTextColor(0xFF8E8E96);
+        loaderTxt.setTextSize(14);
+        loaderTxt.setGravity(Gravity.CENTER);
+        loaderTxt.setPadding(0, 0, 0, dp(24));
+        l.addView(loaderTxt);
+        Button next = new Button(this);
+        next.setText("Boshqa proksi");
+        next.setAllCaps(false);
+        next.setTextColor(0xFF141005);
+        next.setBackgroundTintList(ColorStateList.valueOf(0xFFF7A70B));
+        next.setOnClickListener(v -> switchProxyAndReload());
+        l.addView(next, new LinearLayout.LayoutParams(dp(220), dp(52)));
+        Button back = new Button(this);
+        back.setText("Orqaga");
+        back.setAllCaps(false);
+        back.setTextColor(0xFFD4D4D8);
+        back.setBackgroundTintList(ColorStateList.valueOf(0xFF1B1B20));
+        back.setOnClickListener(v -> { ui.removeCallbacks(watchdog); hideLoader(); igLoaded = false; ig.stopLoading(); showHome(); });
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(220), dp(52));
+        bp.topMargin = dp(10);
+        l.addView(back, bp);
+        return l;
+    }
+
+    String proxyInfo() {
+        String m = mode();
+        if (m.equals("auto")) { String h = px.current(); return h.isEmpty() ? "Proksi qidirilmoqda" : "Proksi: " + h; }
+        if (m.equals("tor")) return "Tor orqali";
+        if (m.equals("proxy")) return "O'z proksingiz orqali";
+        return "To'g'ridan-to'g'ri";
+    }
+
+    void showLoader(String title, String txt) {
+        loaderTitle.setText(title);
+        loaderTxt.setText(txt);
+        loader.setVisibility(View.VISIBLE);
+        loader.bringToFront();
+        topBar.bringToFront();
+        if (home.getVisibility() == View.VISIBLE) home.bringToFront();
+    }
+
+    void hideLoader() { loader.setVisibility(View.GONE); }
+
+    void switchProxyAndReload() {
+        if (mode().equals("auto")) px.rotate();
+        committed = false;
+        showLoader("Boshqa proksiga o'tilmoqda…", proxyInfo());
+        ig.stopLoading();
+        ui.removeCallbacks(watchdog);
+        ui.postDelayed(watchdog, LOAD_LIMIT_MS);
+        ui.postDelayed(() -> ig.loadUrl(IG), 300);
+    }
+
+    /** Sahifa belgilangan vaqtda ko'rinmadi (sekin yoki "osilgan" proksi) — boshqasiga o'tamiz. */
+    void onLoadTooSlow() {
+        if (committed || ig.getVisibility() != View.VISIBLE) return;
+        if (mode().equals("auto") && autoRetries < 5) {
+            autoRetries++;
+            switchProxyAndReload();
+            loaderTitle.setText("Proksi sekin — boshqasiga o'tilmoqda (" + autoRetries + "/5)");
+            return;
+        }
+        toHomeWithErr("Instagram ochilmadi: proksilar juda sekin. Biroz kutib qayta urinib ko'ring yoki Wi-Fi/mobil internetni almashtiring.");
+    }
+
     void toHomeWithErr(String msg) {
+        ui.removeCallbacks(watchdog);
+        hideLoader();
+        topBar.setVisibility(View.GONE);
         igLoaded = false;
         ig.stopLoading();
         ig.setVisibility(View.GONE);
@@ -457,6 +600,14 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (loader.getVisibility() == View.VISIBLE) {
+            ui.removeCallbacks(watchdog);
+            hideLoader();
+            igLoaded = false;
+            ig.stopLoading();
+            showHome();
+            return;
+        }
         if (ig.getVisibility() == View.VISIBLE && home.getVisibility() != View.VISIBLE) {
             if (ig.canGoBack()) ig.goBack();
             else showHome();
