@@ -61,6 +61,9 @@ public class MainActivity extends Activity {
     final Handler ui = new Handler(Looper.getMainLooper());
     final Executor uiExec = ui::post;
     TorManager tor;
+    ProxyEngine px;
+    int autoRetries;
+    boolean hadError;
     boolean pendingOpen;
 
     @Override
@@ -90,7 +93,21 @@ public class MainActivity extends Activity {
             }
             @Override public void onError(String msg) { home("onTorWarn(" + JSONObject.quote(msg) + ")"); }
         });
-        if (mode().equals("tor")) tor.start();
+        px = new ProxyEngine(this, new ProxyEngine.Listener() {
+            @Override public void onSearch(int tested, int total, int found) { home("onPx(" + tested + "," + total + "," + found + ")"); }
+            @Override public void onReady(int port) {
+                home("onPxReady()");
+                if (pendingOpen) { pendingOpen = false; applyAndOpen(); }
+            }
+            @Override public void onSwitch(String host) { home("onPxSwitch(" + JSONObject.quote(host) + ")"); }
+            @Override public void onError(String msg) {
+                if (pendingOpen) { pendingOpen = false; home("onErr(" + JSONObject.quote(msg) + ")"); }
+                else home("onTorWarn(" + JSONObject.quote(msg) + ")");
+            }
+        });
+        // eski versiyalardan: yangi "avto" rejimiga o'tkazamiz
+        if (!sp.getBoolean("mode_v4", false)) sp.edit().putString("mode", "auto").putBoolean("mode_v4", true).apply();
+        startEngine();
         home.loadUrl(HOME);
     }
 
@@ -145,7 +162,7 @@ public class MainActivity extends Activity {
                         .putString("theme", o.optString("theme", "gold"))
                         .putInt("zoom", Math.max(80, Math.min(140, o.optInt("zoom", 100))))
                         .putBoolean("auto", o.optBoolean("auto", true))
-                        .putString("mode", o.optString("mode", "tor"))
+                        .putString("mode", o.optString("mode", "auto"))
                         .putBoolean("eco", o.optBoolean("eco", true))
                         .apply();
             } catch (Exception ignored) { }
@@ -178,7 +195,7 @@ public class MainActivity extends Activity {
         public void nextBridge() { ui.post(() -> tor.nextStage()); }
 
         @JavascriptInterface
-        public void connect() { ui.post(() -> { if (mode().equals("tor")) tor.start(); }); }
+        public void connect() { ui.post(MainActivity.this::startEngine); }
     }
 
     // ---------------- proksi ----------------
@@ -192,13 +209,29 @@ public class MainActivity extends Activity {
     }
 
     String mode() {
-        String m = sp.getString("mode", "tor");
-        return m.equals("proxy") || m.equals("direct") ? m : "tor";
+        String m = sp.getString("mode", "auto");
+        return m.equals("proxy") || m.equals("direct") || m.equals("tor") ? m : "auto";
+    }
+
+    void startEngine() {
+        String m = mode();
+        if (m.equals("auto")) px.start();
+        else if (m.equals("tor")) tor.start();
     }
 
     void applyAndOpen() {
         String m = mode();
         boolean can = WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE);
+        if (m.equals("auto")) {
+            if (!can) { home("onErr(" + JSONObject.quote("Telefoningizdagi Android System WebView eskirgan. Play Market'dan yangilang.") + ")"); return; }
+            if (!px.isReady()) { pendingOpen = true; px.start(); home("onWait()"); return; }
+            final int port = px.port();
+            try {
+                ProxyConfig cfg = new ProxyConfig.Builder().addProxyRule("http://127.0.0.1:" + port).build();
+                ProxyController.getInstance().setProxyOverride(cfg, uiExec, () -> showIg("auto:" + port));
+            } catch (Exception e) { home("onErr(" + JSONObject.quote("Proksi o'rnatilmadi: " + e.getMessage()) + ")"); }
+            return;
+        }
         if (m.equals("tor")) {
             if (!can) { home("onErr(" + JSONObject.quote("Telefoningizdagi Android System WebView eskirgan. Play Market'dan yangilang.") + ")"); return; }
             if (!tor.isReady()) { pendingOpen = true; tor.start(); home("onWait()"); return; }
@@ -332,6 +365,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView v, String url) {
                 authTries = 0;
+                if (!hadError) autoRetries = 0;
+                hadError = false;
                 v.evaluateJavascript(themeJs(), null);
             }
 
@@ -344,7 +379,17 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
-                if (r.isForMainFrame()) toHomeWithErr("Ulanib bo'lmadi: " + e.getDescription());
+                if (!r.isForMainFrame()) return;
+                hadError = true;
+                // avto rejim: boshqa proksiga o'tib, sahifani qayta yuklaymiz (Telegram'dagi kabi)
+                if (mode().equals("auto") && autoRetries < 5) {
+                    autoRetries++;
+                    px.rotate();
+                    home("onPxSwitch(" + JSONObject.quote(px.current()) + ")");
+                    ui.postDelayed(v::reload, 400);
+                    return;
+                }
+                toHomeWithErr("Ulanib bo'lmadi: " + e.getDescription());
             }
         });
 
@@ -423,6 +468,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (tor != null) tor.stop();
+        if (px != null) px.stop();
         super.onDestroy();
     }
 
