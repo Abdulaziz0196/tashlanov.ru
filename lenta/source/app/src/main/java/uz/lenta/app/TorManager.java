@@ -72,7 +72,8 @@ class TorManager {
     private int stageIdx;
     private boolean running, ready, bound, switching;
     private int port, lastPct = -1, rounds;
-    private long lastChange;
+    private long lastChange, lastFlow, lastRead = -1, stageStart, rateAt;
+    private double rate; // bayt/soniya, silliqlangan
     private String lastTag = "starting";
 
     TorManager(Context c, Listener l) {
@@ -291,6 +292,7 @@ class TorManager {
         public void onServiceConnected(ComponentName n, IBinder b) {
             svc = ((TorService.LocalBinder) b).getService();
             lastChange = System.currentTimeMillis();
+            lastFlow = lastChange;
             report();
             h.post(poll);
         }
@@ -314,13 +316,27 @@ class TorManager {
             final TorService s = svc;
             new Thread(() -> {
                 String info = s.getInfo("status/bootstrap-phase");
-                h.post(() -> handle(info));
+                long read = -1;
+                try { read = Long.parseLong(s.getInfo("traffic/read").trim()); } catch (Exception ignored) { }
+                final long r = read;
+                h.post(() -> handle(info, r));
             }).start();
         }
     };
 
-    private void handle(String info) {
+    private void handle(String info, long read) {
         if (!running) return;
+        long tn = System.currentTimeMillis();
+        if (read >= 0) {
+            if (lastRead >= 0 && rateAt > 0 && tn > rateAt) {
+                double inst = (read - lastRead) * 1000.0 / (tn - rateAt);
+                rate = rate * 0.6 + Math.max(0, inst) * 0.4;
+            }
+            // ko'prikdan ma'lumot kelib turibdimi? (sekin bo'lsa ham ishlayotgan ko'prikni uzmaymiz)
+            if (lastRead >= 0 && read - lastRead > 3000) lastFlow = tn;
+            lastRead = read;
+            rateAt = tn;
+        }
         int pct = lastPct;
         if (info != null) {
             Matcher m = P_PROGRESS.matcher(info);
@@ -329,7 +345,8 @@ class TorManager {
             if (t.find()) lastTag = t.group(1);
         }
         long now = System.currentTimeMillis();
-        if (pct > lastPct) { lastPct = pct; lastChange = now; report(); }
+        if (pct > lastPct) { lastPct = pct; lastChange = now; lastFlow = now; }
+        report();
         if (pct >= 100) {
             port = svc.getSocksPort() > 0 ? svc.getSocksPort() : 9050;
             ready = true;
@@ -338,7 +355,11 @@ class TorManager {
             return;
         }
         Stage cur = stages.isEmpty() ? null : stages.get(stageIdx);
-        if (cur != null && !switching && now - lastChange > cur.stallSec * 1000L && stages.size() > 1) {
+        boolean noProgress = now - lastChange > cur_stall(cur) * 1000L;
+        // 25% dan o'tgan ko'prik ishlashi isbotlangan: ma'lumot kelib tursa, 4 daqiqagacha kutamiz
+        boolean noFlow = now - lastFlow > (lastPct >= 25 ? 30_000L : cur_stall(cur) * 1000L);
+        boolean tooLong = now - lastChange > 240_000L;
+        if (cur != null && !switching && noProgress && (noFlow || tooLong) && stages.size() > 1) {
             int next = (stageIdx + 1) % stages.size();
             if (next == 0) {
                 rounds++;
@@ -356,6 +377,8 @@ class TorManager {
         stageIdx = idx;
         switching = true;
         lastChange = System.currentTimeMillis();
+        lastFlow = lastChange;
+        stageStart = lastChange;
         report();
         new Thread(() -> {
             try {
@@ -365,6 +388,7 @@ class TorManager {
                     conf.add("UseBridges 1");
                     for (String line : st.lines) conf.add("Bridge " + line);
                     c.setConf(conf);
+                    dropGuards(c);
                 }
             } catch (Exception ignored) {
             } finally {
@@ -373,9 +397,22 @@ class TorManager {
         }).start();
     }
 
+    private static int cur_stall(Stage s) { return s == null ? 40 : s.stallSec; }
+
+    /** Eski (osilib qolgan) ko'prik bilan aloqani tashlab, yangisini tanlashga majburlaydi. */
+    private static void dropGuards(TorControlConnection c) {
+        try {
+            java.lang.reflect.Method m = TorControlConnection.class.getDeclaredMethod("sendAndWaitForResponse", String.class, String.class);
+            m.setAccessible(true);
+            m.invoke(c, "DROPGUARDS\r\n", null);
+        } catch (Throwable ignored) { }
+    }
+
     private void report() {
         Stage cur = stages.isEmpty() ? null : stages.get(Math.min(stageIdx, stages.size() - 1));
-        l.onProgress(Math.max(lastPct, 0), lastTag, cur == null ? "" : cur.name, stageIdx + 1, stages.size());
+        String name = cur == null ? "" : cur.name;
+        if (rate >= 512) name += " · " + (rate >= 1048576 ? String.format(java.util.Locale.US, "%.1f MB/s", rate / 1048576) : Math.round(rate / 1024) + " KB/s");
+        l.onProgress(Math.max(lastPct, 0), lastTag, name, stageIdx + 1, stages.size());
     }
 
     void stop() {
