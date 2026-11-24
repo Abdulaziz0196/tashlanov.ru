@@ -184,6 +184,7 @@ public class MainActivity extends Activity {
                 o.put("autoscroll", sp.getBoolean("autoscroll", true));
                 o.put("font", sp.getBoolean("font", true));
                 o.put("bgplay", sp.getBoolean("bgplay", true));
+                o.put("noads", sp.getBoolean("noads", true));
                 o.put("torReady", tor != null && tor.isReady());
                 o.put("bridges", sp.getString("bridges_custom", ""));
                 o.put("proxyOk", WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE));
@@ -208,6 +209,7 @@ public class MainActivity extends Activity {
                         .putBoolean("autoscroll", o.optBoolean("autoscroll", true))
                         .putBoolean("font", o.optBoolean("font", true))
                         .putBoolean("bgplay", o.optBoolean("bgplay", true))
+                        .putBoolean("noads", o.optBoolean("noads", true))
                         .apply();
             } catch (Exception ignored) { }
         }
@@ -322,6 +324,7 @@ public class MainActivity extends Activity {
         boolean reload = !igLoaded || !proxy.equals(loadedProxy) || !svc().equals(loadedSvc);
         loadedProxy = proxy;
         loadedSvc = svc();
+        noAds = sp.getBoolean("noads", true);
         if (svc().equals("yt") && sp.getBoolean("bgplay", true)) askNotifications();
         authTries = 0;
         if (reload) {
@@ -435,6 +438,14 @@ public class MainActivity extends Activity {
                 if (sch.equals("https") || sch.equals("http")) return false;
                 openExternal(u); // mailto:, tel: va h.k. — telefonning o'z ilovasida
                 return true;
+            }
+
+            /** Reklama serverlariga so'rovlar umuman yuborilmaydi (YouTube reklamasiz). */
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
+                if (noAds && isAdRequest(r.getUrl()))
+                    return new android.webkit.WebResourceResponse("text/plain", "utf-8", new java.io.ByteArrayInputStream(new byte[0]));
+                return null;
             }
 
             @Override
@@ -632,12 +643,28 @@ public class MainActivity extends Activity {
         ytScript = WebViewCompat.addDocumentStartJavaScript(ig, ytThemeJs(), yo);
     }
 
+    volatile boolean noAds = true;
+
+    static final String[] AD_HOSTS = {"doubleclick.net", "googlesyndication.com", "googleadservices.com", "googletagservices.com",
+            "adservice.google.com", "imasdk.googleapis.com", "googletagmanager.com"};
+
+    static boolean isAdRequest(Uri u) {
+        String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
+        for (String a : AD_HOSTS) if (h.equals(a) || h.endsWith("." + a)) return true;
+        if (h.endsWith("youtube.com")) {
+            String p = u.getPath() == null ? "" : u.getPath();
+            return p.startsWith("/pagead/") || p.startsWith("/api/stats/ads") || p.startsWith("/ptracking")
+                    || p.startsWith("/get_midroll_") || p.startsWith("/youtubei/v1/log_event") && u.toString().contains("adformat");
+        }
+        return false;
+    }
+
     String svc() { return "yt".equals(sp.getString("svc", "ig")) ? "yt" : "ig"; }
     String svcName() { return svc().equals("yt") ? "YouTube" : "Instagram"; }
 
     String ytCode;
     String ytThemeJs() {
-        if (ytCode == null) ytCode = safe("ytheme.js", "clean.js", "autoscroll.js", "font.js", "bg.js");
+        if (ytCode == null) ytCode = safe("adblock.js", "ytheme.js", "clean.js", "autoscroll.js", "font.js", "bg.js");
         JSONObject c = new JSONObject();
         try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
         return extras(ytCode.replace("__CFG__", c.toString()));
@@ -647,7 +674,8 @@ public class MainActivity extends Activity {
     String extras(String js) {
         return js.replace("__AUTO__", String.valueOf(sp.getBoolean("autoscroll", true)))
                  .replace("__FONT__", String.valueOf(sp.getBoolean("font", true)))
-                 .replace("__BG__", String.valueOf(sp.getBoolean("bgplay", true)));
+                 .replace("__BG__", String.valueOf(sp.getBoolean("bgplay", true)))
+                 .replace("__ADS__", String.valueOf(sp.getBoolean("noads", true)));
     }
 
     /** Ochiq sahifaga mos mavzu skripti. */
