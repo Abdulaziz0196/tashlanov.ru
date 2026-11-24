@@ -62,9 +62,12 @@ public class MainActivity extends Activity {
     WebView home, ig;
     boolean igLoaded;
     String loadedProxy = null;
+    String loadedSvc = null;
+    View fullView;
+    WebChromeClient.CustomViewCallback fullCb;
     int authTries;
     ValueCallback<Uri[]> fileCb;
-    ScriptHandler themeScript;
+    ScriptHandler themeScript, ytScript;
     final Handler ui = new Handler(Looper.getMainLooper());
     final Executor uiExec = ui::post;
     TorManager tor;
@@ -123,7 +126,12 @@ public class MainActivity extends Activity {
                 if (pendingOpen) { pendingOpen = false; applyAndOpen(); }
             }
             @Override public void onSwitch(String host) { home("onPxSwitch(" + JSONObject.quote(host) + ")"); }
+            @Override public void onDirect(boolean ok) {
+                home("onYtDirect(" + ok + ")");
+                if (pendingOpen && svc().equals("yt") && ok) { pendingOpen = false; applyAndOpen(); }
+            }
             @Override public void onError(String msg) {
+                if (pendingOpen && svc().equals("yt") && px.youtubeReady()) { pendingOpen = false; applyAndOpen(); return; }
                 if (pendingOpen) { pendingOpen = false; home("onErr(" + JSONObject.quote(msg) + ")"); }
                 else home("onTorWarn(" + JSONObject.quote(msg) + ")");
             }
@@ -167,6 +175,8 @@ public class MainActivity extends Activity {
                 o.put("zoom", sp.getInt("zoom", 100));
                 o.put("auto", sp.getBoolean("auto", true));
                 o.put("mode", mode());
+                o.put("svc", svc());
+                o.put("ytDirect", px != null && px.directChecked() ? (px.directOk() ? 1 : 0) : -1);
                 o.put("version", appVersion());
                 o.put("eco", sp.getBoolean("eco", true));
                 o.put("sound", sp.getBoolean("sound", true));
@@ -206,6 +216,12 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void open() { ui.post(MainActivity.this::applyAndOpen); }
+
+        @JavascriptInterface
+        public void openSvc(String which) {
+            sp.edit().putString("svc", "yt".equals(which) ? "yt" : "ig").apply();
+            ui.post(MainActivity.this::applyAndOpen);
+        }
 
         @JavascriptInterface
         public int setBridges(String text) {
@@ -251,7 +267,10 @@ public class MainActivity extends Activity {
         boolean can = WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE);
         if (m.equals("auto")) {
             if (!can) { home("onErr(" + JSONObject.quote("Telefoningizdagi Android System WebView eskirgan. Play Market'dan yangilang.") + ")"); return; }
-            if (!px.isReady()) { pendingOpen = true; px.start(); home("onWait()"); return; }
+            boolean yt = svc().equals("yt");
+            // YouTube: to'g'ridan-to'g'ri yo'l ishlasa — proksini kutmaymiz
+            boolean okToOpen = yt ? px.youtubeReady() : px.isReady();
+            if (!okToOpen) { pendingOpen = true; px.start(); home("onWait()"); return; }
             final int port = px.port();
             try {
                 ProxyConfig cfg = new ProxyConfig.Builder().addProxyRule("http://127.0.0.1:" + port).build();
@@ -293,18 +312,19 @@ public class MainActivity extends Activity {
         ig.getSettings().setTextZoom(sp.getInt("zoom", 100));
         ig.getSettings().setMediaPlaybackRequiresUserGesture(sp.getBoolean("eco", true));
         installTheme();
-        boolean reload = !igLoaded || !proxy.equals(loadedProxy);
+        boolean reload = !igLoaded || !proxy.equals(loadedProxy) || !svc().equals(loadedSvc);
         loadedProxy = proxy;
+        loadedSvc = svc();
         authTries = 0;
         if (reload) {
             committed = false;
             autoRetries = 0;
-            showLoader("Instagram yuklanmoqda…", proxyInfo());
+            showLoader(svcName() + " yuklanmoqda…", proxyInfo());
             ig.loadUrl(startUrl());
             igLoaded = true;
             ui.removeCallbacks(watchdog);
             ui.postDelayed(watchdog, LOAD_LIMIT_MS);
-        } else ig.evaluateJavascript(themeJs(), null);
+        } else ig.evaluateJavascript(pageJs(ig.getUrl()), null);
         ig.setVisibility(View.VISIBLE);
         ig.setAlpha(0f);
         ig.animate().alpha(1f).setDuration(350).start();
@@ -433,7 +453,7 @@ public class MainActivity extends Activity {
                 authTries = 0;
                 if (!hadError) autoRetries = 0;
                 hadError = false;
-                v.evaluateJavascript(themeJs(), null);
+                v.evaluateJavascript(pageJs(url), null);
             }
 
             @Override
@@ -471,6 +491,22 @@ public class MainActivity extends Activity {
                 if (!committed && loader.getVisibility() == View.VISIBLE)
                     loaderTxt.setText(proxyInfo() + (p > 10 ? "\nYuklandi: " + p + "%" : ""));
             }
+
+            @Override
+            // YouTube videolarini to'liq ekranda (yotiq holda) ko'rish
+            public void onShowCustomView(View view, CustomViewCallback cb) {
+                if (fullView != null) { cb.onCustomViewHidden(); return; }
+                fullView = view;
+                fullCb = cb;
+                ((FrameLayout) ig.getParent()).addView(view, new FrameLayout.LayoutParams(-1, -1));
+                view.setBackgroundColor(Color.BLACK);
+                ig.setVisibility(View.INVISIBLE);
+                setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+            }
+
+            @Override
+            public void onHideCustomView() { exitFullscreen(); }
 
             @Override
             public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams p) {
@@ -529,6 +565,7 @@ public class MainActivity extends Activity {
 
     String proxyInfo() {
         String m = mode();
+        if (m.equals("auto") && svc().equals("yt") && px.directOk()) return "To'g'ridan-to'g'ri — to'liq tezlik";
         if (m.equals("auto")) { String h = px.current(); return h.isEmpty() ? "Proksi qidirilmoqda" : "Proksi: " + h; }
         if (m.equals("tor")) return "Tor orqali";
         if (m.equals("proxy")) return "O'z proksingiz orqali";
@@ -583,12 +620,33 @@ public class MainActivity extends Activity {
     void installTheme() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
         if (themeScript != null) themeScript.remove();
+        if (ytScript != null) ytScript.remove();
         themeScript = WebViewCompat.addDocumentStartJavaScript(ig, themeJs(), Collections.singleton("https://www.instagram.com"));
+        java.util.Set<String> yo = new java.util.HashSet<>(java.util.Arrays.asList("https://m.youtube.com", "https://www.youtube.com"));
+        ytScript = WebViewCompat.addDocumentStartJavaScript(ig, ytThemeJs(), yo);
+    }
+
+    String svc() { return "yt".equals(sp.getString("svc", "ig")) ? "yt" : "ig"; }
+    String svcName() { return svc().equals("yt") ? "YouTube" : "Instagram"; }
+
+    String ytCode;
+    String ytThemeJs() {
+        if (ytCode == null) ytCode = asset("ytheme.js") + "\n" + asset("clean.js");
+        JSONObject c = new JSONObject();
+        try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
+        return ytCode.replace("__CFG__", c.toString());
+    }
+
+    /** Ochiq sahifaga mos mavzu skripti. */
+    String pageJs(String url) {
+        String h = url == null ? "" : Uri.parse(url).getHost();
+        if (h != null && (h.endsWith("youtube.com"))) return ytThemeJs();
+        return themeJs();
     }
 
     String themeCode;
     String themeJs() {
-        if (themeCode == null) themeCode = asset("theme.js");
+        if (themeCode == null) themeCode = asset("theme.js") + "\n" + asset("clean.js");
         JSONObject c = new JSONObject();
         try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
         return themeCode.replace("__CFG__", c.toString());
@@ -621,8 +679,19 @@ public class MainActivity extends Activity {
         super.onActivityResult(req, res, data);
     }
 
+    void exitFullscreen() {
+        if (fullView == null) return;
+        ((FrameLayout) fullView.getParent()).removeView(fullView);
+        fullView = null;
+        ig.setVisibility(View.VISIBLE);
+        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        if (fullCb != null) { fullCb.onCustomViewHidden(); fullCb = null; }
+    }
+
     @Override
     public void onBackPressed() {
+        if (fullView != null) { exitFullscreen(); return; }
         if (loader.getVisibility() == View.VISIBLE) {
             ui.removeCallbacks(watchdog);
             hideLoader();
@@ -633,15 +702,15 @@ public class MainActivity extends Activity {
         }
         if (ig.getVisibility() == View.VISIBLE && home.getVisibility() != View.VISIBLE) {
             if (ig.canGoBack()) { ig.goBack(); return; }
-            // Instagram'ning bosh sahifasida: ilovadan chiqib ketmaslik uchun ikki marta bosish kerak,
-            // shunda ham ilova yopilmaydi — orqa fonga o'tadi va qaytganda shu joydan davom etadi
+            // bosh sahifada: ikkinchi bosishda Lenta menyusi (Instagram ⇄ YouTube) — sahifa holati saqlanadi
             long now = System.currentTimeMillis();
-            if (now - lastBack < 2000) { moveTaskToBack(true); return; }
+            if (now - lastBack < 2000) { showHome(); return; }
             lastBack = now;
-            android.widget.Toast.makeText(this, "Chiqish uchun yana bir marta bosing", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, "Menyu uchun yana bir marta bosing", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        super.onBackPressed();
+        // Lenta menyusida: ilova yopilmaydi — orqa fonga o'tadi, qaytganda shu joydan davom etadi
+        moveTaskToBack(true);
     }
 
     @Override
@@ -663,6 +732,7 @@ public class MainActivity extends Activity {
 
     /** Akkauntga kirilgan bo'lsa — lenta, aks holda to'g'ridan-to'g'ri login sahifasi ("ilovani oching" sahifasisiz). */
     String startUrl() {
+        if (svc().equals("yt")) return "https://m.youtube.com/";
         String c = CookieManager.getInstance().getCookie(IG);
         boolean logged = c != null && c.contains("sessionid=");
         return logged ? IG : IG + "accounts/login/";

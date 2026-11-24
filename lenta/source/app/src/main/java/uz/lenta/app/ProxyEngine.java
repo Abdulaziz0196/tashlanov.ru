@@ -53,10 +53,12 @@ class ProxyEngine {
         void onReady(int localPort);
         void onSwitch(String info);
         void onError(String msg);
+        /** YouTube uchun to'g'ridan-to'g'ri yo'l tekshirildi (proksisiz, to'liq tezlikda). */
+        default void onDirect(boolean ok) { }
     }
 
     static final String SITE_LIST = "https://abdulaziz0196.github.io/tashlanov.ru/lenta/proxies.txt";
-    static final int HTTP = 0, SOCKS4 = 4, SOCKS5 = 5;
+    static final int HTTP = 0, SOCKS4 = 4, SOCKS5 = 5, DIRECT = -1;
 
     /** Manba: manzil, sxemasiz qatorlar turi, navbat (1 — yangi/tekshirilgan, avval sinaladi), nechta olinadi. */
     static final class Src {
@@ -111,7 +113,7 @@ class ProxyEngine {
         final AtomicInteger fails = new AtomicInteger();
 
         Up(int type, String host, int port) { this.type = type; this.host = host; this.port = port; }
-        String key() { return (type == SOCKS5 ? "socks5://" : type == SOCKS4 ? "socks4://" : "http://") + host + ":" + port; }
+        String key() { return type == DIRECT ? "direct://" : (type == SOCKS5 ? "socks5://" : type == SOCKS4 ? "socks4://" : "http://") + host + ":" + port; }
     }
 
     private final Context ctx;
@@ -152,6 +154,7 @@ class ProxyEngine {
             try {
                 openServer();
                 io.execute(this::prewarmDns);
+                io.execute(this::checkDirect);
                 search();
             } catch (Throwable e) {
                 running = false;
@@ -159,6 +162,34 @@ class ProxyEngine {
             }
         });
     }
+
+    // ------------------------------------------------------------ YouTube: to'g'ridan-to'g'ri yo'l
+    final Up DIRECT_UP = new Up(DIRECT, "", 0);
+    /** null — hali tekshirilmagan, true — proksisiz ishlaydi, false — proksi kerak. */
+    private volatile Boolean directYt;
+    private volatile int directFails;
+
+    static boolean isGoogleHost(String h) {
+        h = h.toLowerCase();
+        String[] d = {"youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com", "youtube-nocookie.com",
+                "google.com", "gstatic.com", "googleapis.com", "googleusercontent.com"};
+        for (String x : d) if (h.equals(x) || h.endsWith("." + x)) return true;
+        return false;
+    }
+
+    /** YouTube'ga proksisiz ulanib bo'ladimi (sayt nomi bo'laklab yuborilganda)? */
+    private void checkDirect() {
+        boolean ok = false;
+        for (int i = 0; i < 2 && running && !ok; i++) ok = test(DIRECT_UP, "www.youtube.com") > 0;
+        directYt = ok;
+        final boolean r = ok;
+        h.post(() -> l.onDirect(r));
+    }
+
+    /** YouTube'ni ochish mumkinmi: to'g'ridan-to'g'ri yo'l ishlasa — proksi kutilmaydi. */
+    boolean youtubeReady() { return ready || (localPort > 0 && Boolean.TRUE.equals(directYt)); }
+    boolean directChecked() { return directYt != null; }
+    boolean directOk() { return Boolean.TRUE.equals(directYt); }
 
     private static final long HEALTH_MS = 45000;
     private int healthFails;
@@ -373,7 +404,9 @@ class ProxyEngine {
     }
 
     /** Proksini haqiqiy yo'l bilan tekshiradi: ichki proksi → tashqi proksi → Instagram (TLS + HTTP javob). */
-    private long test(Up u) {
+    private long test(Up u) { return test(u, TEST_HOST); }
+
+    private long test(Up u, String TEST_HOST) {
         long t0 = System.currentTimeMillis();
         Socket s = new Socket();
         try {
@@ -447,16 +480,19 @@ class ProxyEngine {
 
             List<Up> order = new ArrayList<>();
             if (forced != null) {
-                Up f = byKey.get(forced);
+                Up f = forced.equals(DIRECT_UP.key()) ? DIRECT_UP : byKey.get(forced);
                 if (f != null) order.add(f);
             } else {
+                // YouTube/Google: avval to'g'ridan-to'g'ri (sayt nomi yashirilgan holda) — to'liq tezlik, proksisiz
+                if (isGoogleHost(host) && !Boolean.FALSE.equals(directYt)) order.add(DIRECT_UP);
                 Up p = primary;
                 if (p != null) order.add(p);
                 for (Up g : good) if (g != p && order.size() < 4) order.add(g);
             }
             for (Up u : order) {
                 try {
-                    up = tunnel(u, host, port, forced != null ? TEST_TIMEOUT : 8000);
+                    up = tunnel(u, host, port, forced != null ? TEST_TIMEOUT : (u == DIRECT_UP ? 5000 : 8000));
+                    if (u == DIRECT_UP) { directFails = 0; break; }
                     u.fails.set(0);
                     // asosiy proksi bir marta xato qilsa — faqat shu ulanish uchun zaxiradan foydalanamiz;
                     // asosiysini faqat u butunlay ishlamay qolganda (ro'yxatdan chiqqanda) almashtiramiz
@@ -468,6 +504,7 @@ class ProxyEngine {
                     }
                     break;
                 } catch (Exception e) {
+                    if (u == DIRECT_UP) { if (forced == null && ++directFails >= 4) directYt = false; continue; }
                     if (forced == null && u.fails.incrementAndGet() >= (u == primary ? 4 : 2)) drop(u);
                 }
             }
@@ -493,6 +530,12 @@ class ProxyEngine {
         Socket s = new Socket();
         try {
             s.setTcpNoDelay(true);
+            if (u.type == DIRECT) {
+                String ip = resolve(host);
+                s.connect(new InetSocketAddress(ip != null ? ip : host, port), Math.min(timeout, 5000));
+                s.setSoTimeout(timeout);
+                return s;
+            }
             s.connect(new InetSocketAddress(u.host, u.port), Math.min(timeout, 5000));
             s.setSoTimeout(timeout);
             InputStream in = s.getInputStream();

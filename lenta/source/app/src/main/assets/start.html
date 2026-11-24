@@ -133,6 +133,11 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 #conn p{color:var(--mu);font-size:14px;max-width:290px}
 #conn .cs{color:var(--ln);font-size:13px;font-weight:600}
 #cancel{height:44px;padding:0 22px;border-radius:13px;background:var(--s1);border:1px solid var(--line);font-weight:600;font-size:14px;color:var(--tx2)}
+.svcs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.svcs .go{font-size:15px;gap:8px;padding:0 10px}
+.go.yt{background:linear-gradient(135deg,#FF3D3D,#C4170C);color:#fff;box-shadow:0 12px 30px rgba(220,30,30,.32)}
+.go.yt.busy::before{border-color:rgba(255,255,255,.3);border-top-color:#fff}
+.ytinfo{font-size:12px;color:var(--mu);min-height:16px;margin-top:-4px}.ytinfo b{color:#4ADE80;font-weight:600}
 .foot{text-align:center;color:var(--mu);font-size:11.5px;line-height:1.5}
 .toast{position:fixed;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));z-index:30;padding:13px 15px;border-radius:15px;background:#2A0E0E;border:1px solid #4A1D1D;color:#FECACA;font-size:13.5px;font-weight:600;display:flex;gap:10px;align-items:flex-start;transform:translateY(-140%);transition:transform .5s var(--sp)}
 .toast.on{transform:none}
@@ -147,6 +152,8 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></symbol>
 <symbol id="i-pal" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.5-2-.4-1.3.4-2.5 1.8-2.5H17a4 4 0 0 0 4-4C21 7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7.3" r="1.2"/><circle cx="15" cy="7.8" r="1.2"/></symbol>
 <symbol id="i-txt" viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></symbol>
+<symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".7" fill="currentColor"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.2 5 2.8-5 2.8z" fill="currentColor"/></symbol>
 <symbol id="i-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
 <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
 <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></symbol>
@@ -156,7 +163,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 <section id="splash">
   <svg class="mark" viewBox="0 0 120 120"><circle class="r1" cx="60" cy="60" r="47"/><circle class="r2" cx="60" cy="60" r="29"/><circle class="dot" cx="60" cy="60" r="9"/></svg>
   <div class="word" id="word">Lenta</div>
-  <div class="tag0">Instagram — VPN’siz, bepul<span class="ver" data-ver></span></div>
+  <div class="tag0">Instagram va YouTube — VPN’siz<span class="ver" data-ver></span></div>
 </section>
 
 <main id="main" hidden>
@@ -168,10 +175,14 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 
   <div class="hero">
     <div class="phone"><div class="sr"><i></i><i></i><i></i></div><div class="pic"></div><div class="ln"></div><div class="ln s"></div><div class="bt"></div></div>
-    <h1>Instagram<br>VPN’siz</h1>
-    <p>Rasmiy instagram.com sayti — bepul, server kerak emas va o‘zingiz tanlagan rangda.</p>
+    <h1>Instagram<br>va YouTube</h1>
+    <p>VPN’siz, bepul, server kerak emas — o‘zingiz tanlagan rangda.</p>
     <div class="prog" id="prog" hidden><div class="bar"><i id="pbar"></i></div><small><span id="ptxt">Tor ishga tushmoqda…</span><b id="ppct">0%</b></small><div class="pst" id="pst"><span id="pspan">Ko‘prik: <b id="pstage">—</b></span></div></div>
-    <button class="go" id="go"><span>Ochish</span><svg class="i"><use href="#i-go"/></svg></button>
+    <div class="svcs">
+      <button class="go" id="go" data-svc="ig"><svg class="i"><use href="#i-cam"/></svg><span>Instagram</span></button>
+      <button class="go yt" id="goyt" data-svc="yt"><svg class="i"><use href="#i-play"/></svg><span>YouTube</span></button>
+    </div>
+    <div class="ytinfo" id="ytinfo"></div>
   </div>
 
   <div class="card">
@@ -219,7 +230,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
   </div>
 
   </div></details>
-  <p class="foot"><b data-verfull></b><br>Lenta — instagram.com saytini ochuvchi mustaqil ilova.<br>Instagram bilan bog‘liq emas. Parolingiz faqat instagram.com’ga yuboriladi.</p>
+  <p class="foot"><b data-verfull></b><br>Lenta — instagram.com va youtube.com saytlarini ochuvchi mustaqil ilova.<br>Instagram va YouTube bilan bog‘liq emas. Parolingiz faqat ularning o‘ziga yuboriladi.</p>
 </main>
 
 <section id="conn" aria-live="polite">
@@ -227,7 +238,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
   <h2 id="ctitle">Ulanmoqda…</h2>
   <p id="ctxt">Tor ishga tushmoqda</p>
   <div class="cs" id="cstage"></div>
-  <p>Birinchi marta 1–2 daqiqa olishi mumkin. Tayyor bo‘lishi bilan Instagram o‘zi ochiladi.</p>
+  <p>Birinchi marta 1–2 daqiqa olishi mumkin. Tayyor bo‘lishi bilan sahifa o‘zi ochiladi.</p>
   <button id="cancel">Bekor qilish</button>
 </section>
 <div class="toast" id="toast"><svg class="i"><use href="#i-warn"/></svg><span></span></div>
@@ -237,7 +248,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var N=window.Native||{ // brauzerda sinash uchun
-  _c:{version:'4.7',sound:true,proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
+  _c:{version:'5.0',svc:'ig',ytDirect:1,sound:true,proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
   setBridges:function(t){return (t.match(/^(webtunnel|obfs4|snowflake|meek_lite) /gm)||[]).length},nextBridge:function(){},
   connect:function(){if(this._t)return;if(C.mode==='auto'){var t=0;this._t=setInterval(function(){t+=23;var f=t>200?1+Math.floor((t-200)/60):0;window.onPx(Math.min(t,480),480,f);if(f>=2){clearInterval(N._t);N._ready=true;window.onPxReady()}},250);return}var p=0,tags=['conn_pt','handshake','loading_status','loading_descriptors','circuit_create','done'];this._t=setInterval(function(){p=Math.min(100,p+Math.ceil(Math.random()*14));window.onTor(p,tags[Math.min(5,Math.floor(p/20))],'WebTunnel',1,4);if(p>=100){clearInterval(N._t);N._ready=true;window.onTorReady()}},300)},
   config:function(){return JSON.stringify(this._c)},save:function(j){this._c=JSON.parse(j)},
@@ -257,6 +268,9 @@ function save(){N.save(JSON.stringify(C))}
 function paint(){var t=TH.filter(function(x){return x[0]===C.theme})[0]||TH[1],r=document.documentElement.style;
   r.setProperty('--bg',t[2]);r.setProperty('--ac',t[3]);r.setProperty('--ln',t[4]);r.setProperty('--s1',t[5]);r.setProperty('--line',t[6]);r.setProperty('--s2',t[6]);
   $('#thname').textContent=t[1];[].forEach.call(document.querySelectorAll('.th'),function(b){b.classList.toggle('on',b.dataset.t===C.theme)})}
+var curGo=null;function G(){return curGo||$('#go')}
+function resetGo(){[].forEach.call(document.querySelectorAll('.svcs .go'),function(b){b.classList.remove('busy','wait');b.querySelector('span').textContent=b.dataset.svc==='yt'?'YouTube':'Instagram'})}
+window.onYtDirect=function(ok){var e=$('#ytinfo');if(!e)return;e.innerHTML=ok?'YouTube: <b>to‘g‘ridan-to‘g‘ri, to‘liq tezlik</b>':'YouTube: proksi orqali'};
 var tt;function toast(m,ok){var t=$('#toast');t.className='toast'+(ok?' ok':'');t.querySelector('span').textContent=m;void t.offsetWidth;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},4200)}
 function status(s,txt){var e=$('#st');e.className='st'+(s?' '+s:'');e.querySelector('span').textContent=txt}
 function baseStatus(){if(!C.proxyOk)return status('bad','WebView eskirgan');
@@ -299,13 +313,13 @@ $('#mode').addEventListener('click',function(e){var b=e.target.closest('button')
 function conn(on){$('#conn').classList.toggle('on',on)}
 function connUI(tag,stage,no,cnt){$('#cpct').textContent=torPct+'%';$('#cring').style.strokeDashoffset=502-502*torPct/100;if(tag)$('#ctxt').textContent=(TAGS[tag]||'Ulanmoqda');
   if(stage)$('#cstage').textContent='Ko‘prik: '+stage+(cnt>1?' ('+no+'/'+cnt+')':'');if(torReady){$('#ctitle').textContent='Ulandi!';$('#ctxt').textContent='Instagram ochilmoqda…'}}
-$('#cancel').addEventListener('click',function(){conn(false);$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';if(N.cancel)N.cancel()});
-window.onTor=function(p,tag,stage,no,cnt){torPct=p;connUI(tag,stage,no,cnt);$('#ptxt').textContent=(TAGS[tag]||'Ulanmoqda')+'…';if(stage)$('#pstage').textContent=stage+(cnt>1?' ('+no+'/'+cnt+')':'');prog();baseStatus();if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+p+'%'};
+$('#cancel').addEventListener('click',function(){conn(false);G().classList.remove('busy','wait');resetGo();if(N.cancel)N.cancel()});
+window.onTor=function(p,tag,stage,no,cnt){torPct=p;connUI(tag,stage,no,cnt);$('#ptxt').textContent=(TAGS[tag]||'Ulanmoqda')+'…';if(stage)$('#pstage').textContent=stage+(cnt>1?' ('+no+'/'+cnt+')':'');prog();baseStatus();if(G().classList.contains('busy'))G().querySelector('span').textContent='Ulanmoqda… '+p+'%'};
 window.onTorReady=function(){ready1();torReady=true;torPct=100;prog();baseStatus();connUI()};
 window.onPx=function(t,tot,f){if(C.mode!=='auto')return;if(!torReady)torPct=f>0?99:Math.min(95,Math.round(t*95/Math.max(tot,1)));
   var txt=f>0?f+' ta ishlaydigan proksi topildi':'Ishlaydigan proksi qidirilmoqda';var st=t+' / '+tot+' tekshirildi';
   $('#ptxt').textContent=txt+'…';$('#pspan').textContent=st;$('#cstage').textContent=st;connUI();$('#ctxt').textContent=torReady?'Instagram ochilmoqda…':txt;prog();baseStatus();
-  if($('#go').classList.contains('busy'))$('#go').querySelector('span').textContent='Ulanmoqda… '+torPct+'%'};
+  if(G().classList.contains('busy'))G().querySelector('span').textContent='Ulanmoqda… '+torPct+'%'};
 window.onPxReady=function(){ready1();torReady=true;torPct=100;$('#ptxt').textContent='Proksi topildi';prog();baseStatus();connUI()};
 window.onPxSwitch=function(hst){if(hst)toast('Boshqa proksiga o‘tildi',true)};
 window.onTorWarn=function(m){toast(m)};
@@ -313,7 +327,7 @@ $('#br').value=C.bridges||'';
 $('#brsave').addEventListener('click',function(){var n=N.setBridges?N.setBridges($('#br').value):0;C.bridges=$('#br').value;
   toast(n?n+' ta ko‘prik saqlandi — ulanmoqda':($('#br').value.trim()?'Ko‘prik topilmadi: qator webtunnel, obfs4 yoki snowflake bilan boshlanishi kerak':'O‘z ko‘priklaringiz o‘chirildi'),!!n||!$('#br').value.trim());if(N.connect)N.connect()});
 
-window.onWait=function(){var g=$('#go');g.classList.add('busy','wait');g.querySelector('span').textContent='Ulanmoqda… '+torPct+'%';connUI();conn(true)};
+window.onWait=function(){var g=G();g.classList.add('busy','wait');g.querySelector('span').textContent='Ulanmoqda… '+torPct+'%';connUI();conn(true)};
 $('#test').addEventListener('click',function(){C.proxy=$('#px').value.trim();C.user=$('#pu').value.trim();C.pass=$('#pp').value;save();
   $('#res').innerHTML='<div class="rl mid">Tekshirilmoqda…<b>⋯</b></div>';N.test(C.proxy,C.user,C.pass)});
 function line(name,v){var cls,txt;
@@ -324,17 +338,18 @@ window.onTest=function(direct,via){
   $('#res').innerHTML=line('To‘g‘ridan-to‘g‘ri',direct.indexOf('ok:')===0?'ok:ochiq · '+direct.slice(3):direct)+line('Proksi orqali',via);
   if(via.indexOf('ok:')===0)status('ok','Proksi ishlayapti');else if(via.indexOf('err:')===0)status('bad','Proksi ishlamadi');
   if(direct.indexOf('ok:')===0&&via==='none')toast('Instagram sizda VPN’siz ham ochiq ekan — proksi shart emas',true)};
-window.onErr=function(m){conn(false);$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';status('bad','Xato');toast(m)};
-window.onBack=function(){conn(false);$('#ctitle').textContent='Ulanmoqda…';$('#go').classList.remove('busy','wait');$('#go').querySelector('span').textContent='Ochish';baseStatus();showMain(false)};
-$('#go').addEventListener('click',function(){C.proxy=$('#px').value.trim();C.user=$('#pu').value.trim();C.pass=$('#pp').value;save();this.classList.add('busy');setTimeout(function(){N.open()},250)});
+window.onErr=function(m){conn(false);G().classList.remove('busy','wait');resetGo();status('bad','Xato');toast(m)};
+window.onBack=function(){conn(false);$('#ctitle').textContent='Ulanmoqda…';G().classList.remove('busy','wait');resetGo();baseStatus();showMain(false)};
+[].forEach.call(document.querySelectorAll('.svcs .go'),function(btn){btn.addEventListener('click',function(){curGo=this;C.svc=this.dataset.svc;C.proxy=$('#px').value.trim();C.user=$('#pu').value.trim();C.pass=$('#pp').value;save();this.classList.add('busy');setTimeout(function(){(N.openSvc?N.openSvc(C.svc):N.open())},250)});});
 
 function showMain(anim){var m=$('#main');m.hidden=false;if(anim){m.classList.remove('in');void m.offsetWidth;m.classList.add('in')}}
 (function(){var v=C.version||'';[].forEach.call(document.querySelectorAll('[data-ver]'),function(e){e.textContent=v?'v'+v:'';e.hidden=!v});
   var f=document.querySelector('[data-verfull]');if(f)f.textContent=v?'Lenta '+v+' versiya':''})();
+if(C.ytDirect===1||C.ytDirect===0)window.onYtDirect(C.ytDirect===1);
 paint();modeUI();if((C.mode==='tor'||C.mode==='auto')&&!torReady&&!window.Native)N.connect();
 setTimeout(function(){
   showMain(true);$('#splash').classList.add('out');setTimeout(function(){$('#splash').hidden=true},600);
-  if(C.auto&&C.proxyOk){$('#go').classList.add('busy');N.open()}
+  if(C.auto&&C.proxyOk){curGo=C.svc==='yt'?$('#goyt'):$('#go');G().classList.add('busy');(N.openSvc?N.openSvc(C.svc||'ig'):N.open())}
 },1900);
 })();
 </script>
