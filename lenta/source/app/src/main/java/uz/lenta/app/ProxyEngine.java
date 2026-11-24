@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -170,6 +171,14 @@ class ProxyEngine {
     private volatile int directFails;
 
     private volatile Boolean directCdn;
+    /** YouTube video oqimlari (googlevideo) to'g'ridan-to'g'ri ishlaydimi; null — sinab ko'rilmoqda. */
+    private volatile Boolean directVideo;
+    private volatile int videoStalls, cdnStalls;
+
+    static boolean isVideoHost(String h) {
+        h = h.toLowerCase();
+        return h.equals("googlevideo.com") || h.endsWith(".googlevideo.com");
+    }
     private volatile int cdnFails;
 
     static boolean isMetaCdn(String h) {
@@ -465,6 +474,7 @@ class ProxyEngine {
 
     private void handleClient(Socket c) {
         Socket up = null;
+        boolean usedDirect = false;
         try {
             c.setTcpNoDelay(true);
             c.setSoTimeout(15000);
@@ -496,7 +506,9 @@ class ProxyEngine {
                 if (f != null) order.add(f);
             } else {
                 // YouTube/Google: avval to'g'ridan-to'g'ri (sayt nomi yashirilgan holda) — to'liq tezlik, proksisiz
-                if (isGoogleHost(host) && !Boolean.FALSE.equals(directYt)) order.add(DIRECT_UP);
+                // video oqimlari (googlevideo) sekinlashtirilgan bo'lsa — to'g'ridan-to'g'ri emas, proksi orqali
+                boolean video = isVideoHost(host);
+                if (isGoogleHost(host) && !Boolean.FALSE.equals(directYt) && !(video && Boolean.FALSE.equals(directVideo))) order.add(DIRECT_UP);
                 // Instagram rasm/video serverlari (CDN): tekshiruvda ishlagan bo'lsa — to'g'ridan-to'g'ri (Reels tez yuklansin)
                 else if (isMetaCdn(host) && Boolean.TRUE.equals(directCdn)) order.add(DIRECT_UP);
                 Up p = primary;
@@ -506,7 +518,7 @@ class ProxyEngine {
             for (Up u : order) {
                 try {
                     up = tunnel(u, host, port, forced != null ? TEST_TIMEOUT : (u == DIRECT_UP ? 5000 : 8000));
-                    if (u == DIRECT_UP) { if (isMetaCdn(host)) cdnFails = 0; else directFails = 0; break; }
+                    if (u == DIRECT_UP) { usedDirect = true; if (isMetaCdn(host)) cdnFails = 0; else directFails = 0; break; }
                     u.fails.set(0);
                     // asosiy proksi bir marta xato qilsa — faqat shu ulanish uchun zaxiradan foydalanamiz;
                     // asosiysini faqat u butunlay ishlamay qolganda (ro'yxatdan chiqqanda) almashtiramiz
@@ -535,8 +547,23 @@ class ProxyEngine {
             c.setSoTimeout(0);
             up.setSoTimeout(0);
             final Socket fu = up;
-            io.execute(() -> pipe(fu, c, null));
-            pipe(c, up, host);
+            final AtomicLong down = new AtomicLong(), sent = new AtomicLong();
+            io.execute(() -> pipe(fu, c, null, down));
+            if (usedDirect && (isVideoHost(host) || isMetaCdn(host))) {
+                // "osilib qolgan" to'g'ridan-to'g'ri ulanish: so'rov yuborildi, lekin 8 soniyada deyarli hech narsa kelmadi —
+                // bu sekinlashtirish (DPI). Ulanishni yopamiz; 2 marta takrorlansa, bu turdagi manzillar proksi orqali boradi.
+                final boolean cdn = isMetaCdn(host);
+                io.execute(() -> {
+                    try { Thread.sleep(8000); } catch (InterruptedException ignored) { }
+                    if (!c.isClosed() && sent.get() > 2500 && down.get() < 96 * 1024) {
+                        if (cdn) { if (++cdnStalls >= 2) directCdn = false; }
+                        else if (++videoStalls >= 2) directVideo = false;
+                        closeQuietly(c);
+                        closeQuietly(fu);
+                    }
+                });
+            }
+            pipe(c, up, host, sent);
         } catch (Exception e) {
             closeQuietly(c);
             closeQuietly(up);
@@ -613,7 +640,7 @@ class ProxyEngine {
     }
 
     /** Ma'lumotni uzatadi. host berilsa — birinchi TLS paketini bo'laklab yuboradi (sayt nomi DPI'ga ko'rinmasin). */
-    private static void pipe(Socket from, Socket to, String host) {
+    private static void pipe(Socket from, Socket to, String host, AtomicLong count) {
         byte[] buf = new byte[32768];
         try {
             InputStream in = from.getInputStream();
@@ -623,8 +650,10 @@ class ProxyEngine {
                 if (host != null && n > 6 && buf[0] == 0x16) writeSplit(out, buf, n, host);
                 else out.write(buf, 0, n);
                 out.flush();
+                count.addAndGet(n);
             }
             while (n > 0 && (n = in.read(buf)) > 0) {
+                count.addAndGet(n);
                 out.write(buf, 0, n);
                 out.flush();
             }
