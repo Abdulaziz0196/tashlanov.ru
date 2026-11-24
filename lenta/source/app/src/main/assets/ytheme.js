@@ -33,6 +33,7 @@
     return (m.bg.length || m.ac.length) ? m : null;
   }
   function apply(cfg) {
+    if (!document.documentElement) return;
     var t = T[cfg.theme], el = document.getElementById('lenta-yt');
     if (!t) { if (el) el.remove(); return; }
     if (!map) map = discover();
@@ -51,7 +52,7 @@
   if (window.__lentaYt) { window.__lentaYt(C); return; }
   var cfg = C;
   window.__lentaYt = function (c) { cfg = c; apply(cfg); };
-  // sahifa uslublari bosqichma-bosqich yuklanadi — birinchi 12 soniyada ranglarni qayta-qayta aniqlaymiz
-  var n = 0, iv = setInterval(function () { map = null; apply(cfg); if (++n > 24) clearInterval(iv); }, 500);
+  // sahifa uslublari bosqichma-bosqich yuklanadi — ranglarni faqat bir necha marta aniqlaymiz (qotmaslik uchun)
+  [600, 1500, 3500, 7000].forEach(function (ms) { setTimeout(function () { map = null; apply(cfg); }, ms); });
   document.addEventListener('DOMContentLoaded', function () { apply(cfg); });
 })();

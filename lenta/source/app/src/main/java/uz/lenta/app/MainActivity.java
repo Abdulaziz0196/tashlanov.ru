@@ -180,6 +180,8 @@ public class MainActivity extends Activity {
                 o.put("version", appVersion());
                 o.put("eco", sp.getBoolean("eco", true));
                 o.put("sound", sp.getBoolean("sound", true));
+                o.put("autoscroll", sp.getBoolean("autoscroll", true));
+                o.put("font", sp.getBoolean("font", true));
                 o.put("torReady", tor != null && tor.isReady());
                 o.put("bridges", sp.getString("bridges_custom", ""));
                 o.put("proxyOk", WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE));
@@ -201,6 +203,8 @@ public class MainActivity extends Activity {
                         .putString("mode", o.optString("mode", "auto"))
                         .putBoolean("eco", o.optBoolean("eco", true))
                         .putBoolean("sound", o.optBoolean("sound", true))
+                        .putBoolean("autoscroll", o.optBoolean("autoscroll", true))
+                        .putBoolean("font", o.optBoolean("font", true))
                         .apply();
             } catch (Exception ignored) { }
         }
@@ -400,8 +404,6 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setGeolocationEnabled(false);
-        // tezlik: ekrandan tashqaridagi qismni oldindan chizib qo'yadi — aylantirish silliqroq
-        s.setOffscreenPreRaster(true);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
@@ -631,10 +633,16 @@ public class MainActivity extends Activity {
 
     String ytCode;
     String ytThemeJs() {
-        if (ytCode == null) ytCode = asset("ytheme.js") + "\n" + asset("clean.js");
+        if (ytCode == null) ytCode = safe("ytheme.js", "clean.js", "autoscroll.js", "font.js");
         JSONObject c = new JSONObject();
         try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
-        return ytCode.replace("__CFG__", c.toString());
+        return extras(ytCode.replace("__CFG__", c.toString()));
+    }
+
+    /** Avto-skroll va Lenta shrifti sozlamalari. */
+    String extras(String js) {
+        return js.replace("__AUTO__", String.valueOf(sp.getBoolean("autoscroll", true)))
+                 .replace("__FONT__", String.valueOf(sp.getBoolean("font", true)));
     }
 
     /** Ochiq sahifaga mos mavzu skripti. */
@@ -646,10 +654,17 @@ public class MainActivity extends Activity {
 
     String themeCode;
     String themeJs() {
-        if (themeCode == null) themeCode = asset("theme.js") + "\n" + asset("clean.js");
+        if (themeCode == null) themeCode = safe("theme.js", "clean.js", "autoscroll.js", "font.js");
         JSONObject c = new JSONObject();
         try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
-        return themeCode.replace("__CFG__", c.toString());
+        return extras(themeCode.replace("__CFG__", c.toString()));
+    }
+
+    /** Har bir skript alohida himoyalanadi: biridagi xato qolganlarini to'xtatmaydi. */
+    String safe(String... names) {
+        StringBuilder b = new StringBuilder();
+        for (String n : names) b.append("try{\n").append(asset(n)).append("\n}catch(e){}\n");
+        return b.toString();
     }
 
     String asset(String name) {
