@@ -224,6 +224,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
     <div class="ch"><span class="ic"><svg class="i"><use href="#i-txt"/></svg></span><h2>Matn o‘lchami</h2></div>
     <input type="range" id="zoom" min="85" max="130" step="5">
     <div class="zl"><span>Kichik</span><b id="zv"></b><span>Katta</span></div>
+    <div class="sw"><div>YouTube fonda ijro<small>Ilovadan chiqsangiz yoki ekran o‘chsa ham qo‘shiq/kino davom etadi</small></div><button class="tg" id="bgp" aria-label="Fonda ijro"></button></div>
     <div class="sw"><div>Avto-skroll<small>Reels va Shorts tugashi bilan keyingisiga o‘tadi</small></div><button class="tg" id="asc" aria-label="Avto-skroll"></button></div>
     <div class="sw"><div>Lenta shrifti<small>Instagram va YouTube ichida zamonaviy shrift</small></div><button class="tg" id="fnt" aria-label="Lenta shrifti"></button></div>
     <div class="sw"><div>Ovoz<small>Ochilish va ulanish ovozlari</small></div><button class="tg" id="snd" aria-label="Ovoz"></button></div>
@@ -250,7 +251,7 @@ textarea.inp{height:96px;padding:11px 13px;resize:vertical;font:12px/1.4 ui-mono
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var N=window.Native||{ // brauzerda sinash uchun
-  _c:{version:'5.1',autoscroll:true,font:true,svc:'ig',ytDirect:1,sound:true,proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
+  _c:{version:'5.4',bgplay:true,autoscroll:true,font:true,svc:'ig',ytDirect:1,sound:true,proxy:'',user:'',pass:'',theme:'gold',zoom:100,auto:true,proxyOk:true,mode:'auto',eco:true,torReady:false},
   setBridges:function(t){return (t.match(/^(webtunnel|obfs4|snowflake|meek_lite) /gm)||[]).length},nextBridge:function(){},
   connect:function(){if(this._t)return;if(C.mode==='auto'){var t=0;this._t=setInterval(function(){t+=23;var f=t>200?1+Math.floor((t-200)/60):0;window.onPx(Math.min(t,480),480,f);if(f>=2){clearInterval(N._t);N._ready=true;window.onPxReady()}},250);return}var p=0,tags=['conn_pt','handshake','loading_status','loading_descriptors','circuit_create','done'];this._t=setInterval(function(){p=Math.min(100,p+Math.ceil(Math.random()*14));window.onTor(p,tags[Math.min(5,Math.floor(p/20))],'WebTunnel',1,4);if(p>=100){clearInterval(N._t);N._ready=true;window.onTorReady()}},300)},
   config:function(){return JSON.stringify(this._c)},save:function(j){this._c=JSON.parse(j)},
@@ -308,6 +309,7 @@ $('#px').value=C.proxy;$('#pu').value=C.user;$('#pp').value=C.pass;$('#zoom').va
 $('#zoom').addEventListener('input',function(){C.zoom=+this.value;$('#zv').textContent=C.zoom+'%';save()});
 $('#auto').addEventListener('click',function(){C.auto=!C.auto;this.classList.toggle('on',C.auto);save()});
 $('#eco').classList.toggle('on',!!C.eco);
+if(C.bgplay===undefined)C.bgplay=true;$('#bgp').classList.toggle('on',!!C.bgplay);$('#bgp').addEventListener('click',function(){C.bgplay=!C.bgplay;this.classList.toggle('on',C.bgplay);save()});
 if(C.autoscroll===undefined)C.autoscroll=true;if(C.font===undefined)C.font=true;
 $('#asc').classList.toggle('on',!!C.autoscroll);$('#asc').addEventListener('click',function(){C.autoscroll=!C.autoscroll;this.classList.toggle('on',C.autoscroll);save()});
 $('#fnt').classList.toggle('on',!!C.font);$('#fnt').addEventListener('click',function(){C.font=!C.font;this.classList.toggle('on',C.font);save()});

@@ -87,6 +87,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        inst = new java.lang.ref.WeakReference<>(this);
         sp = getSharedPreferences("cfg", MODE_PRIVATE);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -182,6 +183,7 @@ public class MainActivity extends Activity {
                 o.put("sound", sp.getBoolean("sound", true));
                 o.put("autoscroll", sp.getBoolean("autoscroll", true));
                 o.put("font", sp.getBoolean("font", true));
+                o.put("bgplay", sp.getBoolean("bgplay", true));
                 o.put("torReady", tor != null && tor.isReady());
                 o.put("bridges", sp.getString("bridges_custom", ""));
                 o.put("proxyOk", WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE));
@@ -205,6 +207,7 @@ public class MainActivity extends Activity {
                         .putBoolean("sound", o.optBoolean("sound", true))
                         .putBoolean("autoscroll", o.optBoolean("autoscroll", true))
                         .putBoolean("font", o.optBoolean("font", true))
+                        .putBoolean("bgplay", o.optBoolean("bgplay", true))
                         .apply();
             } catch (Exception ignored) { }
         }
@@ -319,6 +322,7 @@ public class MainActivity extends Activity {
         boolean reload = !igLoaded || !proxy.equals(loadedProxy) || !svc().equals(loadedSvc);
         loadedProxy = proxy;
         loadedSvc = svc();
+        if (svc().equals("yt") && sp.getBoolean("bgplay", true)) askNotifications();
         authTries = 0;
         if (reload) {
             committed = false;
@@ -633,7 +637,7 @@ public class MainActivity extends Activity {
 
     String ytCode;
     String ytThemeJs() {
-        if (ytCode == null) ytCode = safe("ytheme.js", "clean.js", "autoscroll.js", "font.js");
+        if (ytCode == null) ytCode = safe("ytheme.js", "clean.js", "autoscroll.js", "font.js", "bg.js");
         JSONObject c = new JSONObject();
         try { c.put("theme", sp.getString("theme", "gold")); } catch (Exception ignored) { }
         return extras(ytCode.replace("__CFG__", c.toString()));
@@ -642,7 +646,8 @@ public class MainActivity extends Activity {
     /** Avto-skroll va Lenta shrifti sozlamalari. */
     String extras(String js) {
         return js.replace("__AUTO__", String.valueOf(sp.getBoolean("autoscroll", true)))
-                 .replace("__FONT__", String.valueOf(sp.getBoolean("font", true)));
+                 .replace("__FONT__", String.valueOf(sp.getBoolean("font", true)))
+                 .replace("__BG__", String.valueOf(sp.getBoolean("bgplay", true)));
     }
 
     /** Ochiq sahifaga mos mavzu skripti. */
@@ -730,13 +735,64 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        PlaybackService.stop(this);
         if (tor != null) tor.stop();
         if (px != null) px.stop();
         super.onDestroy();
     }
 
     @Override
-    protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
+    protected void onPause() {
+        super.onPause();
+        CookieManager.getInstance().flush();
+        ui.removeCallbacks(playPoll);
+        // YouTube o'ynab turgan bo'lsa — ilovadan chiqqanda ham davom etsin (fon xizmati + bildirishnoma)
+        if (bgAllowed()) {
+            ig.evaluateJavascript("window.__lentaSetBg&&window.__lentaSetBg(true)", null);
+            if (ytPlaying) PlaybackService.start(this);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (ig != null) ig.evaluateJavascript("window.__lentaSetBg&&window.__lentaSetBg(false)", null);
+        PlaybackService.stop(this);
+        ui.removeCallbacks(playPoll);
+        ui.postDelayed(playPoll, 2000);
+    }
+
+    // ---------------- YouTube fonda ijro ----------------
+    static java.lang.ref.WeakReference<MainActivity> inst;
+    volatile boolean ytPlaying;
+
+    boolean bgAllowed() {
+        return ig != null && sp.getBoolean("bgplay", true) && svc().equals("yt") && ig.getVisibility() == View.VISIBLE;
+    }
+
+    /** Video o'ynayaptimi — har 2 soniyada so'rab turamiz (ilovadan chiqqan zahoti xizmatni yoqish uchun). */
+    final Runnable playPoll = new Runnable() {
+        @Override
+        public void run() {
+            if (bgAllowed()) ig.evaluateJavascript("!!(window.__lentaPlaying&&window.__lentaPlaying())", v -> ytPlaying = "true".equals(v));
+            else ytPlaying = false;
+            ui.postDelayed(this, 2000);
+        }
+    };
+
+    /** Bildirishnomadagi tugmalar (Pauza/Davom, To'xtatish) shu yerga keladi. */
+    static void mediaCommand(final String js) {
+        MainActivity a = inst == null ? null : inst.get();
+        if (a == null || a.ig == null) return;
+        a.ui.post(() -> a.ig.evaluateJavascript(js, null));
+    }
+
+    /** Android 13+: bildirishnoma uchun ruxsat (bir marta so'raladi). */
+    void askNotifications() {
+        if (android.os.Build.VERSION.SDK_INT < 33 || sp.getBoolean("asked_notif", false)) return;
+        sp.edit().putBoolean("asked_notif", true).apply();
+        try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 9); } catch (Exception ignored) { }
+    }
 
     @Override
     protected void onStop() { super.onStop(); CookieManager.getInstance().flush(); }
