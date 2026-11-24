@@ -201,10 +201,7 @@ class ProxyEngine {
         directYt = ok;
         final boolean r = ok;
         h.post(() -> l.onDirect(r));
-        // Instagram CDN'ga ham to'g'ridan-to'g'ri ulanib bo'ladimi?
-        boolean cdn = false;
-        for (int i = 0; i < 2 && running && !cdn; i++) cdn = test(DIRECT_UP, "static.cdninstagram.com") > 0;
-        directCdn = cdn;
+
     }
 
     /** YouTube'ni ochish mumkinmi: to'g'ridan-to'g'ri yo'l ishlasa — proksi kutilmaydi. */
@@ -509,8 +506,8 @@ class ProxyEngine {
                 // video oqimlari (googlevideo) sekinlashtirilgan bo'lsa — to'g'ridan-to'g'ri emas, proksi orqali
                 boolean video = isVideoHost(host);
                 if (isGoogleHost(host) && !Boolean.FALSE.equals(directYt) && !(video && Boolean.FALSE.equals(directVideo))) order.add(DIRECT_UP);
-                // Instagram rasm/video serverlari (CDN): tekshiruvda ishlagan bo'lsa — to'g'ridan-to'g'ri (Reels tez yuklansin)
-                else if (isMetaCdn(host) && Boolean.TRUE.equals(directCdn)) order.add(DIRECT_UP);
+                // Instagram'ning barcha manzillari (CDN ham) — faqat proksi orqali: Rossiyada ular bloklangan,
+                // to'g'ridan-to'g'ri urinish sahifa yuklanishini to'xtatib qo'yardi (v5.1 dagi xato)
                 Up p = primary;
                 if (p != null) order.add(p);
                 for (Up g : good) if (g != p && order.size() < 4) order.add(g);
