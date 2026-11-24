@@ -169,6 +169,14 @@ class ProxyEngine {
     private volatile Boolean directYt;
     private volatile int directFails;
 
+    private volatile Boolean directCdn;
+    private volatile int cdnFails;
+
+    static boolean isMetaCdn(String h) {
+        h = h.toLowerCase();
+        return h.endsWith(".cdninstagram.com") || h.endsWith(".fbcdn.net");
+    }
+
     static boolean isGoogleHost(String h) {
         h = h.toLowerCase();
         String[] d = {"youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com", "youtube-nocookie.com",
@@ -184,6 +192,10 @@ class ProxyEngine {
         directYt = ok;
         final boolean r = ok;
         h.post(() -> l.onDirect(r));
+        // Instagram CDN'ga ham to'g'ridan-to'g'ri ulanib bo'ladimi?
+        boolean cdn = false;
+        for (int i = 0; i < 2 && running && !cdn; i++) cdn = test(DIRECT_UP, "static.cdninstagram.com") > 0;
+        directCdn = cdn;
     }
 
     /** YouTube'ni ochish mumkinmi: to'g'ridan-to'g'ri yo'l ishlasa — proksi kutilmaydi. */
@@ -485,6 +497,8 @@ class ProxyEngine {
             } else {
                 // YouTube/Google: avval to'g'ridan-to'g'ri (sayt nomi yashirilgan holda) — to'liq tezlik, proksisiz
                 if (isGoogleHost(host) && !Boolean.FALSE.equals(directYt)) order.add(DIRECT_UP);
+                // Instagram rasm/video serverlari (CDN): tekshiruvda ishlagan bo'lsa — to'g'ridan-to'g'ri (Reels tez yuklansin)
+                else if (isMetaCdn(host) && Boolean.TRUE.equals(directCdn)) order.add(DIRECT_UP);
                 Up p = primary;
                 if (p != null) order.add(p);
                 for (Up g : good) if (g != p && order.size() < 4) order.add(g);
@@ -492,7 +506,7 @@ class ProxyEngine {
             for (Up u : order) {
                 try {
                     up = tunnel(u, host, port, forced != null ? TEST_TIMEOUT : (u == DIRECT_UP ? 5000 : 8000));
-                    if (u == DIRECT_UP) { directFails = 0; break; }
+                    if (u == DIRECT_UP) { if (isMetaCdn(host)) cdnFails = 0; else directFails = 0; break; }
                     u.fails.set(0);
                     // asosiy proksi bir marta xato qilsa — faqat shu ulanish uchun zaxiradan foydalanamiz;
                     // asosiysini faqat u butunlay ishlamay qolganda (ro'yxatdan chiqqanda) almashtiramiz
@@ -504,7 +518,11 @@ class ProxyEngine {
                     }
                     break;
                 } catch (Exception e) {
-                    if (u == DIRECT_UP) { if (forced == null && ++directFails >= 4) directYt = false; continue; }
+                    if (u == DIRECT_UP) {
+                        if (forced == null && isMetaCdn(host)) { if (++cdnFails >= 4) directCdn = false; }
+                        else if (forced == null && ++directFails >= 4) directYt = false;
+                        continue;
+                    }
                     if (forced == null && u.fails.incrementAndGet() >= (u == primary ? 4 : 2)) drop(u);
                 }
             }
