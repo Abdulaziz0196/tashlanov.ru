@@ -17,7 +17,7 @@
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
 //   /admin/stats           /stats plus the app versions in use (admin only)
 //   GET  /config           {paid, minBuild, ...}: what the apps check at start (an update is required / a paid period is required); both off while free
-//   /admin/config          read (GET) and save (POST) /config
+//   /admin/config          read (GET) and save (POST) /config; `relays` = the relay servers of the apps, one https address per line
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with "Authorization: Bearer <ADMIN_PASSWORD>" (a secret set in Cloudflare);
 //                          5 wrong passwords lock the address out for 15 minutes; /admin/* and /access answer only the Abugram site's origin
@@ -133,7 +133,11 @@ function clean(value, max) {
   return String(value ?? '').slice(0, max);
 }
 
-const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: 'Yangilash kerak', updateMessage: 'Xabarchi\'ning yangi versiyasi chiqdi. Saytdan yangilang.', payTitle: 'Obuna kerak', payMessage: 'Davom etish uchun Xabarchi obunasini yoqing.', url: 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/'};
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: 'Yangilash kerak', updateMessage: 'Xabarchi\'ning yangi versiyasi chiqdi. Saytdan yangilang.', payTitle: 'Obuna kerak', payMessage: 'Davom etish uchun Xabarchi obunasini yoqing.', url: 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/', relays: ''};
+// the relay servers as a list: https addresses only, at most 8
+function relayList(text) {
+  return String(text || '').split(/\s+/).map((x) => x.trim().replace(/\/+$/, '')).filter((x) => /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(x)).slice(0, 8);
+}
 let configCache = null;
 async function getConfig(env) {
   if(configCache && Date.now() < configCache.until) return configCache.value;
@@ -272,7 +276,8 @@ async function handleAds(request, env, url) {
   }
 
   if(path === '/config' && request.method === 'GET') {
-    return J(await getConfig(env), 200, {'cache-control': 'public, max-age=60'});
+    const cfg = await getConfig(env);
+    return J({...cfg, relays: relayList(cfg.relays)}, 200, {'cache-control': 'public, max-age=60'});
   }
 
   if(path === '/admin/config') {
@@ -286,7 +291,7 @@ async function handleAds(request, env, url) {
       const stmts = [];
       for(const k of Object.keys(CONFIG_DEFAULT)) {
         if(!(k in b)) continue;
-        const v = typeof CONFIG_DEFAULT[k] === 'boolean' ? (b[k] ? '1' : '0') : typeof CONFIG_DEFAULT[k] === 'number' ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        const v = k === 'relays' ? relayList(b[k]).join('\n') : typeof CONFIG_DEFAULT[k] === 'boolean' ? (b[k] ? '1' : '0') : typeof CONFIG_DEFAULT[k] === 'number' ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
         if(k === 'url' && v && !/^https:\/\//i.test(v)) return J({error: 'Havola https:// bilan boshlanishi kerak'}, 400);
         stmts.push(d.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, v));
       }
@@ -400,6 +405,6 @@ export default {
         return json({error: 'server xatosi'}, 500);
       }
     }
-    return new Response('Abugram relay is running (v9).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v10).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };
