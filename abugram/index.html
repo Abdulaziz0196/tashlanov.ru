@@ -257,30 +257,43 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
     showTab(device==='ios'?'web':device);
   }
 
-  // latest releases: the download button turns on once the file exists
-  function release(key,repo,ext,warnUz,warnRu){
+  // the download button: the owner's own download page first (its server keeps the file), GitHub when that is not reachable
+  function release(key,repo,ext){
+    var MIRROR='https://tashlanov.uz/xabarchi/';
     function setStatus(cls,icon,uz,ru){
       var st=document.getElementById('st-'+key);
       st.className='status '+cls;
       st.innerHTML=icon+' <span data-lang="uz">'+uz+'</span><span data-lang="ru">'+ru+'</span>';
     }
-    fetch('https://api.github.com/repos/Abdulaziz0196/'+repo+'/releases/latest',{headers:{'Accept':'application/vnd.github+json'}})
+    var pad=function(n){return (n<10?'0':'')+n;};
+    function show(href,name,size,iso){
+      var btn=document.getElementById('btn-'+key);
+      btn.href=href;btn.removeAttribute('aria-disabled');
+      var d=new Date(iso);
+      var when=pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      document.getElementById('meta-'+key).textContent=name+' · '+(size/1048576).toFixed(0)+' MB · '+when;
+      setStatus('ok','✅','Tayyor','Готово');
+    }
+    function fromGithub(){
+      return fetch('https://api.github.com/repos/Abdulaziz0196/'+repo+'/releases/latest',{headers:{'Accept':'application/vnd.github+json'}})
+        .then(function(r){if(!r.ok){throw new Error(r.status);}return r.json();})
+        .then(function(rel){
+          var asset=(rel.assets||[]).filter(function(a){return ext.test(a.name);})[0];
+          if(!asset){throw new Error('no file');}
+          show(asset.browser_download_url,rel.name,asset.size,rel.published_at);
+        });
+    }
+    var ctrl=('AbortController' in window)?new AbortController():null;
+    var timer=setTimeout(function(){if(ctrl)ctrl.abort();},4000);
+    fetch(MIRROR+'?api=latest',{cache:'no-store',signal:ctrl?ctrl.signal:undefined})
       .then(function(r){if(!r.ok){throw new Error(r.status);}return r.json();})
-      .then(function(rel){
-        var asset=(rel.assets||[]).filter(function(a){return ext.test(a.name);})[0];
-        if(!asset){throw new Error('no file');}
-        var btn=document.getElementById('btn-'+key);
-        btn.href=asset.browser_download_url;btn.removeAttribute('aria-disabled');
-        var mb=(asset.size/1048576).toFixed(0);
-        var d=new Date(rel.published_at);
-        var pad=function(n){return (n<10?'0':'')+n;};
-        var when=pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
-        document.getElementById('meta-'+key).textContent=rel.name+' · '+mb+' MB · '+when;
-        if(warnUz){setStatus('warn','🧪',warnUz,warnRu);}else{setStatus('ok','✅','Tayyor','Готово');}
+      .then(function(j){
+        clearTimeout(timer);
+        if(!j.ok||!j.download){throw new Error('no file');}
+        show(j.download,'Xabarchi uz '+j.version+' ('+j.build+')',j.size,j.date);
       })
-      .catch(function(){
-        setStatus('wait','⏳','Tez orada — yig\'ilmoqda','Скоро — собирается');
-      });
+      .catch(function(){clearTimeout(timer);return fromGithub();})
+      .catch(function(){setStatus('wait','⏳','Tez orada — yig\'ilmoqda','Скоро — собирается');});
   }
   release('android','abugram-android',/\.apk$/i);
 })();
