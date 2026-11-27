@@ -79,6 +79,13 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   </div>
   <h2>Reklamalar</h2>
   <div id="list"></div>
+  <h2>Funksiya tugmalari</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Biror narsa buzilsa, shu yerda o'chirib qo'yasiz. Ilovalar 1–2 daqiqada biladi. Tuzatilgach yana yoqasiz.</p>
+    <div id="featList"></div>
+    <div class="row" style="margin-top:14px"><button id="fsave">Saqlash</button></div>
+    <div class="msg" id="fmsg"></div>
+  </div>
   <h2>Relay serverlari</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Ilova Telegram'ga shu serverlar orqali ulanadi. Biri uzilsa, ikkinchisiga o'zi o'tadi. Ro'yxatning boshidagilari afzal; Cloudflare doim oxirgi zaxira bo'lib qoladi.</p>
@@ -126,7 +133,16 @@ function api(method,path,body){
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
 function loadConfig(){
-  api('GET','/admin/config').then(function(c){$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+  api('GET','/admin/config').then(function(c){renderFeatures(String(c.off||'').split(/[\s,]+/));$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+}
+var FEATURES=[['ads','Reklama (chatlar tepasida)'],['splash','Ochilish animatsiyasi va ovozi'],['updater','Ilova ichida yangilash'],['sendTime','Yuborish vaqtini ko\'rsatish'],['ghost','Ko\'rinmas rejim (ruxsatlilarda)'],['keepDeleted','O\'chirilganlarni saqlash (ruxsatlilarda)']];
+function renderFeatures(off){
+  var box=$('featList');box.innerHTML='';
+  FEATURES.forEach(function(f){
+    var l=document.createElement('label');l.className='check';
+    var c=document.createElement('input');c.type='checkbox';c.dataset.k=f[0];c.checked=off.indexOf(f[0])<0;
+    l.appendChild(c);l.appendChild(document.createTextNode(' '+f[1]));box.appendChild(l);
+  });
 }
 function checkRelays(){
   var box=$('rstatus');box.textContent='';
@@ -207,6 +223,10 @@ $('save').onclick=function(){
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
 };
 $('reset').onclick=function(){fill(null);};
+$('fsave').onclick=function(){
+  var off=[].slice.call($('featList').querySelectorAll('input')).filter(function(c){return !c.checked;}).map(function(c){return c.dataset.k;});
+  api('POST','/admin/config',{off:off.join(',')}).then(function(){msg($('fmsg'),off.length?'Saqlandi ✅ O\'chirilgan: '+off.length+' ta':'Saqlandi ✅ Hammasi yoqiq',true);}).catch(function(e){msg($('fmsg'),e.message);});
+};
 $('rcheck').onclick=checkRelays;
 $('rsave').onclick=function(){
   api('POST','/admin/config',{relays:$('cRelays').value}).then(function(){msg($('rmsg'),'Saqlandi ✅ (ilovalar 1–2 daqiqada biladi)',true);loadConfig();setTimeout(checkRelays,300);}).catch(function(e){msg($('rmsg'),e.message);});
