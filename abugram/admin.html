@@ -24,6 +24,24 @@ button.danger{background:var(--bad)}
 .msg{margin-top:10px;font-size:14px}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
 img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;display:block}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px}.check input{width:auto}
+
+body{padding-bottom:86px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:6px}.topbar h1{flex:1;margin:0;font-size:20px}
+.topbar button{width:auto;padding:8px 14px;font-size:14px}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+#nav button{flex:1;background:none;border:0;color:var(--muted);padding:6px 2px;font-size:11px;font-weight:600;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px;margin:0;width:auto}
+#nav button span.ic{font-size:21px;line-height:1}
+#nav button.on{color:var(--text);background:rgba(106,92,255,.16)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .v{font-size:28px;font-weight:800;letter-spacing:-.02em}.tile .k{font-size:13px;color:var(--muted)}
+.state{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.state:last-child{border-bottom:0}.state .l{font-size:15px}.state .l small{display:block;color:var(--muted);font-size:12px}
+.badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}.badge.ok{background:rgba(52,199,89,.16);color:var(--ok)}.badge.warn{background:rgba(255,159,10,.16);color:#ff9f0a}
+.state button{width:auto;margin:0;padding:8px 14px;font-size:13px}
+h2{font-size:19px}
+#logout{display:none}
+.hint{color:var(--muted);font-size:13px;margin:-4px 0 10px}
 </style></head><body><main>
 <h1>Xabarchi Admin</h1>
 <p class="sub">Reklamalar: qo'shish, o'zgartirish, statistika. Chatlar ro'yxati tepasida "Reklama" belgisi bilan chiqadi.</p>
@@ -36,7 +54,20 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
 </div>
 
 <div id="panel" hidden>
-  <h2>Statistika</h2>
+  <div class="topbar"><h1>Xabarchi uz</h1><button class="ghost" id="logout2">Chiqish</button></div>
+  <div id="dash">
+    <h2>Bosh sahifa</h2>
+    <p class="hint">Eng kerakli narsalar shu yerda. Pastdagi tugmalar orqali boshqa bo'limlarga o'tasiz.</p>
+    <div class="tiles">
+      <div class="tile"><div class="v" id="dTotal">—</div><div class="k">Jami odam</div></div>
+      <div class="tile"><div class="v" id="dToday">—</div><div class="k">Bugun kirgan</div></div>
+      <div class="tile"><div class="v" id="dVer">—</div><div class="k">Android versiyasi</div></div>
+      <div class="tile"><div class="v" id="dPend">—</div><div class="k">Tekshiruvdagi to'lov</div></div>
+    </div>
+    <div class="card" id="dState"></div>
+    <div class="row" style="margin-top:6px"><button data-go="2">💬 Xabar yuborish</button><button class="ghost" data-go="1">📢 Reklama</button><button class="ghost" data-go="3">💰 To'lovlar</button></div>
+  </div>
+  <h2>Odamlar statistikasi</h2>
   <div class="card">
     <div class="stats" style="margin-top:0;flex-wrap:wrap;gap:18px;font-size:15px">
       <span>Jami odam: <b id="sTotal">—</b></span><span>Bugun: <b id="sToday">—</b></span><span>7 kun: <b id="s7">—</b></span><span>30 kun: <b id="s30">—</b></span><span>Ikkalasida ham: <b id="sBoth">—</b></span>
@@ -49,7 +80,7 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
     <div class="row" style="margin-top:12px"><a href="stats.html" target="_blank" rel="noopener"><button class="ghost" type="button">Reklama beruvchilar uchun sahifa ↗</button></a></div>
     <p class="ad-text" style="margin:8px 0 0">Bu havolani reklama beruvchilarga yuborasiz: abdulaziz0196.github.io/tashlanov.ru/abugram/stats.html</p>
   </div>
-  <h2>Versiyalar</h2>
+  <h2>Ilova versiyalari</h2>
   <div class="card">
     <div class="stats" style="margin-top:0;flex-wrap:wrap;gap:18px;font-size:15px">
       <span>Android (oxirgi): <b id="vAndroid">—</b></span><span>Veb (oxirgi): <b id="vWeb">—</b></span>
@@ -99,7 +130,7 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
     <div class="row" style="margin-top:14px"><button id="psave">Saqlash</button><button class="ghost" id="ptest">PayHamyonni tekshirish</button></div>
     <div class="msg" id="pmsg"></div>
   </div>
-  <h2>To'lovlar</h2>
+  <h2>To'lovlar ro'yxati</h2>
   <div class="card"><p class="ad-text" style="margin:0">Rubl to'lovlari shu yerda "Tekshiruvda" bo'lib turadi: karta hisobingizni tekshirib, summa mos kelsa "Tasdiqlash" bosing. Karta (PayHamyon) to'lovlari o'zi hisoblanadi.</p></div>
   <div id="payList"></div>
   <h2>Xabar yuborish</h2>
@@ -126,14 +157,14 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
     <div class="row" style="margin-top:14px"><button id="ksave">Saqlash</button></div>
     <div class="msg" id="kmsg"></div>
   </div>
-  <h2>Funksiya tugmalari</h2>
+  <h2>Funksiyalarni yoqish va o'chirish</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Biror narsa buzilsa, shu yerda o'chirib qo'yasiz. Ilovalar 1–2 daqiqada biladi. Tuzatilgach yana yoqasiz.</p>
     <div id="featList"></div>
     <div class="row" style="margin-top:14px"><button id="fsave">Saqlash</button></div>
     <div class="msg" id="fmsg"></div>
   </div>
-  <h2>Relay serverlari</h2>
+  <h2>Ulanish serverlari</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Ilova Telegram'ga shu serverlar orqali ulanadi. Biri uzilsa, ikkinchisiga o'zi o'tadi. Ro'yxatning boshidagilari afzal; Cloudflare doim oxirgi zaxira bo'lib qoladi.</p>
     <label for="cRelays">Server manzillari (har biri alohida qatorda, https:// bilan)</label>
@@ -155,7 +186,7 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
     <div class="row" style="margin-top:14px"><button id="csave">Saqlash</button></div>
     <div class="msg" id="cmsg"></div>
   </div>
-  <h2>Ruxsat berilganlar</h2>
+  <h2>Maxsus ruxsatlar (ko'rinmas rejim, admin)</h2>
   <p class="sub">Shu ro'yxatdagilarda Sozlamalar ▸ Xabarchi ichida ko'rinmas rejim chiqadi; "Admin" belgisi bo'lsa, ilovada "Admin panel" tugmasi chiqadi. Telegram ID'ni Xabarchi'da profilda ko'rish mumkin (Sozlamalar ▸ Xabarchi ▸ ID ko'rsatish).</p>
   <div class="card">
     <label for="uid">Telegram ID</label><input id="uid" inputmode="numeric" placeholder="Masalan: 123456789">
@@ -225,25 +256,53 @@ function loadMessages(){
   }).catch(function(e){msg($('mmsg'),e.message);});
 }
 function loadPromo(c){$('kUser').value=c.promoUser||'';$('kTitle').value=c.promoTitle||'';$('kText').value=c.promoText||'';}
-var TABS=[['Ko\'rsatkichlar',['Statistika','Versiyalar']],['Reklama',['Yangi reklama','Reklamalar']],['Xabarlar',['Xabar yuborish','Yuborilgan xabarlar','Kanal tavsiyasi']],['To\'lov',['To\'lov sozlamalari','To\'lovlar','Pullik rejim']],['Tizim',['Funksiya tugmalari','Relay serverlari','Ruxsat berilganlar']]];
+var TABS=[['Bosh','🏠',['Bosh sahifa']],['Reklama','📢',['Yangi reklama','Reklamalar']],['Xabarlar','💬',['Xabar yuborish','Yuborilgan xabarlar','Kanal tavsiyasi']],['To\'lov','💰',['Pullik rejim','To\'lov sozlamalari','To\'lovlar ro\'yxati']],['Odamlar','👥',['Odamlar statistikasi','Maxsus ruxsatlar (ko\'rinmas rejim, admin)']],['Tizim','⚙️',['Ilova versiyalari','Funksiyalarni yoqish va o\'chirish','Ulanish serverlari']]];
+var goTab=function(){};
 function buildTabs(){
   var panel=$('panel');if(panel.dataset.tabs)return;panel.dataset.tabs='1';
   var groups={};var cur=null;
   [].slice.call(panel.children).forEach(function(el){
-    if(el.tagName==='H2'){cur={h:el,nodes:[el]};groups[el.textContent.trim()]=cur;}
-    else if(cur&&el.id!=='tabbar'){cur.nodes.push(el);}
+    if(el.id==='dash'){var h=el.querySelector('h2');groups[h.textContent.trim()]={nodes:[el]};cur=null;}
+    else if(el.tagName==='H2'){cur={nodes:[el]};groups[el.textContent.trim()]=cur;}
+    else if(cur&&!el.classList.contains('topbar')){cur.nodes.push(el);}
   });
-  var bar=document.createElement('div');bar.id='tabbar';bar.className='row';bar.style.cssText='position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;overflow-x:auto;flex-wrap:nowrap';
-  panel.insertBefore(bar,panel.firstChild);
+  var nav=document.createElement('div');nav.id='nav';document.body.appendChild(nav);
   var btns=[];
   function show(i){
-    TABS.forEach(function(t,k){t[1].forEach(function(name){var g=groups[name];if(g)g.nodes.forEach(function(n){n.style.display=(k===i)?'':'none';});});});
-    btns.forEach(function(b,k){b.className=k===i?'':'ghost';});
+    TABS.forEach(function(t,k){t[2].forEach(function(name){var g=groups[name];if(g)g.nodes.forEach(function(n){n.style.display=(k===i)?'':'none';});});});
+    btns.forEach(function(b,k){b.className=k===i?'on':'';});
     try{sessionStorage.setItem('abugram-tab',String(i));}catch(e){}
+    window.scrollTo(0,0);
   }
-  TABS.forEach(function(t,i){var b=document.createElement('button');b.textContent=t[0];b.style.whiteSpace='nowrap';b.onclick=function(){show(i);};bar.appendChild(b);btns.push(b);});
+  goTab=show;
+  TABS.forEach(function(t,i){var b=document.createElement('button');b.innerHTML='<span class="ic">'+t[1]+'</span>'+t[0];b.onclick=function(){show(i);};nav.appendChild(b);btns.push(b);});
+  [].forEach.call(document.querySelectorAll('[data-go]'),function(b){b.onclick=function(){show(Number(b.dataset.go));};});
   var start=0;try{start=Number(sessionStorage.getItem('abugram-tab'))||0;}catch(e){}
   show(Math.min(start,TABS.length-1));
+}
+function stateRow(label,small,ok,okText,warnText,btnText,onclick){
+  var d=document.createElement('div');d.className='state';
+  var l=document.createElement('div');l.className='l';l.textContent=label;if(small){var sm=document.createElement('small');sm.textContent=small;l.appendChild(sm);}
+  var r=document.createElement('div');r.style.cssText='display:flex;gap:8px;align-items:center';
+  var bd=document.createElement('span');bd.className='badge '+(ok?'ok':'warn');bd.textContent=ok?okText:warnText;r.appendChild(bd);
+  if(!ok&&btnText){var bt=document.createElement('button');bt.textContent=btnText;bt.onclick=onclick;r.appendChild(bt);}
+  d.appendChild(l);d.appendChild(r);return d;
+}
+function loadDash(){
+  var f=function(n){return (n||0).toLocaleString('ru-RU');};
+  api('GET','/admin/stats').then(function(s){$('dTotal').textContent=f(s.total);$('dToday').textContent=f(s.today);}).catch(function(){});
+  fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest').then(function(r){return r.json();}).then(function(r){$('dVer').textContent=((r.name||'?').match(/\((\d+)\)/)||[0,'?'])[1];}).catch(function(){$('dVer').textContent='?';});
+  Promise.all([api('GET','/admin/config'),api('GET','/admin/pay')]).then(function(x){
+    var c=x[0],pay=x[1];
+    $('dPend').textContent=f((pay.payments||[]).filter(function(p){return p.status==='review';}).length);
+    var box=$('dState');box.innerHTML='';
+    var off=String(c.off||'').split(/[\s,]+/).filter(Boolean);
+    box.appendChild(stateRow('Pullik rejim','Yoqilsa, to\'lamagan odamda ilova ochilmaydi',!c.paid,'O\'chiq','YOQILGAN','O\'chirish',function(){if(confirm('Pullik rejim o\'chirilsinmi? Hamma ilovadan bemalol foydalanadi.'))api('POST','/admin/config',{paid:0}).then(function(){loadDash();loadConfig();});}));
+    box.appendChild(stateRow('Majburiy yangilash','Eski versiyadagilarni to\'sib qo\'yadi',!(Number(c.minBuild)>0),'O\'chiq','Raqam: '+c.minBuild,'O\'chirish',function(){api('POST','/admin/config',{minBuild:0}).then(function(){loadDash();loadConfig();});}));
+    box.appendChild(stateRow('Reklama kartasi','Chatlar tepasida',off.indexOf('ads')<0,'Yoqiq','O\'chirilgan',null));
+    box.appendChild(stateRow('To\'lov (PayHamyon)','Karta orqali avtomatik to\'lov',!!(pay.config&&pay.config.phOn==='1'&&pay.config.phKeySaved),'Tayyor','Hali sozlanmagan',null));
+    box.appendChild(stateRow('Kanal tavsiyasi','@'+(c.promoUser||'—'),!!c.promoUser&&off.indexOf('promo')<0,'Yoqiq','O\'chiq',null));
+  }).catch(function(){});
 }
 function loadConfig(){
   api('GET','/admin/config').then(function(c){renderFeatures(String(c.off||'').split(/[\s,]+/));loadPromo(c);$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
@@ -267,7 +326,7 @@ function checkRelays(){
     }).catch(function(){line.textContent='❌ '+u+' · javob yo\'q';});
   });
 }
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;buildTabs();load();loadUsers();loadStats();loadConfig();loadPay();loadMessages(); }
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;[].forEach.call(document.querySelectorAll('main > h1, main > p.sub'),function(e){e.style.display='none';});buildTabs();var nv=document.getElementById('nav');if(nv)nv.style.display='';load();loadUsers();loadStats();loadConfig();loadPay();loadMessages();loadDash(); }
 function loadStats(){
   var f=function(n){return (n||0).toLocaleString('ru-RU');};
   api('GET','/admin/stats').then(function(s){
@@ -376,6 +435,7 @@ $('usave').onclick=function(){
   api('POST','/admin/access',ub)
     .then(function(){msg($('umsg'),'Saqlandi ✅',true);$('uid').value='';$('uname').value='';$('udays').value='';loadUsers();}).catch(function(e){msg($('umsg'),e.message);});
 };
-$('logout').onclick=function(){try{sessionStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;};
+$('logout2').onclick=function(){$('logout').onclick();};
+$('logout').onclick=function(){try{sessionStorage.removeItem('abugram-admin');}catch(e){}pw='';$('panel').hidden=true;$('login').hidden=false;var nv=document.getElementById('nav');if(nv)nv.style.display='none';[].forEach.call(document.querySelectorAll('main > h1, main > p.sub'),function(e){e.style.display='';});};
 if(pw){api('GET','/admin/ads').then(showPanel).catch(function(){});}
 </script></body></html>
