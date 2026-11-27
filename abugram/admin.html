@@ -12,7 +12,7 @@ h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:24px 0 10px}
 p.sub{color:var(--muted);margin:0 0 16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
 label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-input,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+input,textarea,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
 textarea{min-height:80px;resize:vertical}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2))}
@@ -102,6 +102,30 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   <h2>To'lovlar</h2>
   <div class="card"><p class="ad-text" style="margin:0">Rubl to'lovlari shu yerda "Tekshiruvda" bo'lib turadi: karta hisobingizni tekshirib, summa mos kelsa "Tasdiqlash" bosing. Karta (PayHamyon) to'lovlari o'zi hisoblanadi.</p></div>
   <div id="payList"></div>
+  <h2>Xabar yuborish</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Xabar ilovada chatlar ro'yxati tepasidagi "Xabarchi uz" kartasida chiqadi, oddiy xabardek. Hammaga yoki tanlanganlarga yuborasiz.</p>
+    <label for="mTitle">Sarlavha (ixtiyoriy)</label><input id="mTitle" maxlength="80">
+    <label for="mBody">Matn</label><textarea id="mBody" maxlength="1500" placeholder="Xabar matni…"></textarea>
+    <label for="mUrl">Havola (ixtiyoriy, https://…)</label><input id="mUrl" placeholder="https://t.me/my_aboutuz">
+    <label for="mBtn">Tugma yozuvi (havola bo'lsa)</label><input id="mBtn" maxlength="30" placeholder="Ochish">
+    <label for="mTo">Kimga</label>
+    <select id="mTo"><option value="all">Hammaga</option><option value="some">Tanlanganlarga (Telegram ID)</option></select>
+    <textarea id="mIds" hidden placeholder="Telegram ID'lar: 123456789, 987654321" style="min-height:60px;margin-top:8px"></textarea>
+    <div class="row" style="margin-top:14px"><button id="msend">Yuborish</button></div>
+    <div class="msg" id="mmsg"></div>
+  </div>
+  <h2>Yuborilgan xabarlar</h2>
+  <div id="msgList"></div>
+  <h2>Kanal tavsiyasi</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Chatlar ro'yxati tepasida hammada turadi: qo'shilmaguncha "Qo'shilish", qo'shilgach "Ochish". Kanaldan chiqib ketsa, yana "Qo'shilish" bo'ladi.</p>
+    <label for="kUser">Kanal (@ bilan yoki usiz)</label><input id="kUser" placeholder="my_aboutuz">
+    <label for="kTitle">Sarlavha</label><input id="kTitle" maxlength="60">
+    <label for="kText">Tagidagi yozuv</label><input id="kText" maxlength="80">
+    <div class="row" style="margin-top:14px"><button id="ksave">Saqlash</button></div>
+    <div class="msg" id="kmsg"></div>
+  </div>
   <h2>Funksiya tugmalari</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Biror narsa buzilsa, shu yerda o'chirib qo'yasiz. Ilovalar 1–2 daqiqada biladi. Tuzatilgach yana yoqasiz.</p>
@@ -185,10 +209,46 @@ function loadPay(){
   }).catch(function(e){msg($('pmsg'),e.message);});
 }
 function loadConfigAndPay(){loadPay();}
-function loadConfig(){
-  api('GET','/admin/config').then(function(c){renderFeatures(String(c.off||'').split(/[\s,]+/));$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+function loadMessages(){
+  api('GET','/admin/messages').then(function(j){
+    var list=$('msgList');list.innerHTML='';
+    if(!(j.messages||[]).length){list.innerHTML='<div class="card ad-text">Hali xabar yuborilmagan.</div>';return;}
+    j.messages.forEach(function(m){
+      var d=document.createElement('div');d.className='card';
+      d.innerHTML='<div class="row" style="justify-content:space-between"><div class="ad-title"></div><span class="pill"></span></div><div class="ad-text"></div><div class="row" style="margin-top:10px"><button class="danger">O\'chirish</button></div>';
+      d.querySelector('.ad-title').textContent='#'+m.id+(m.title?' · '+m.title:'');
+      d.querySelector('.pill').textContent=m.audience==='all'?'Hammaga':(m.audience.split(',').filter(Boolean).length+' kishiga');
+      d.querySelector('.ad-text').textContent=m.body+(m.url?'\n🔗 '+m.url:'')+'\n'+new Date(m.created).toLocaleString('ru-RU');
+      d.querySelector('button').onclick=function(){if(confirm('Xabar o\'chirilsinmi? Ilovalarda ham yo\'qoladi, yangi olganlarga ko\'rinmaydi.'))api('DELETE','/admin/messages?id='+m.id).then(loadMessages);};
+      list.appendChild(d);
+    });
+  }).catch(function(e){msg($('mmsg'),e.message);});
 }
-var FEATURES=[['ads','Reklama (chatlar tepasida)'],['splash','Ochilish animatsiyasi va ovozi'],['updater','Ilova ichida yangilash'],['sendTime','Yuborish vaqtini ko\'rsatish'],['ghost','Ko\'rinmas rejim (ruxsatlilarda)'],['keepDeleted','O\'chirilganlarni saqlash (ruxsatlilarda)']];
+function loadPromo(c){$('kUser').value=c.promoUser||'';$('kTitle').value=c.promoTitle||'';$('kText').value=c.promoText||'';}
+var TABS=[['Ko\'rsatkichlar',['Statistika','Versiyalar']],['Reklama',['Yangi reklama','Reklamalar']],['Xabarlar',['Xabar yuborish','Yuborilgan xabarlar','Kanal tavsiyasi']],['To\'lov',['To\'lov sozlamalari','To\'lovlar','Pullik rejim']],['Tizim',['Funksiya tugmalari','Relay serverlari','Ruxsat berilganlar']]];
+function buildTabs(){
+  var panel=$('panel');if(panel.dataset.tabs)return;panel.dataset.tabs='1';
+  var groups={};var cur=null;
+  [].slice.call(panel.children).forEach(function(el){
+    if(el.tagName==='H2'){cur={h:el,nodes:[el]};groups[el.textContent.trim()]=cur;}
+    else if(cur&&el.id!=='tabbar'){cur.nodes.push(el);}
+  });
+  var bar=document.createElement('div');bar.id='tabbar';bar.className='row';bar.style.cssText='position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;overflow-x:auto;flex-wrap:nowrap';
+  panel.insertBefore(bar,panel.firstChild);
+  var btns=[];
+  function show(i){
+    TABS.forEach(function(t,k){t[1].forEach(function(name){var g=groups[name];if(g)g.nodes.forEach(function(n){n.style.display=(k===i)?'':'none';});});});
+    btns.forEach(function(b,k){b.className=k===i?'':'ghost';});
+    try{sessionStorage.setItem('abugram-tab',String(i));}catch(e){}
+  }
+  TABS.forEach(function(t,i){var b=document.createElement('button');b.textContent=t[0];b.style.whiteSpace='nowrap';b.onclick=function(){show(i);};bar.appendChild(b);btns.push(b);});
+  var start=0;try{start=Number(sessionStorage.getItem('abugram-tab'))||0;}catch(e){}
+  show(Math.min(start,TABS.length-1));
+}
+function loadConfig(){
+  api('GET','/admin/config').then(function(c){renderFeatures(String(c.off||'').split(/[\s,]+/));loadPromo(c);$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+}
+var FEATURES=[['ads','Reklama (chatlar tepasida)'],['splash','Ochilish animatsiyasi va ovozi'],['updater','Ilova ichida yangilash'],['sendTime','Yuborish vaqtini ko\'rsatish'],['ghost','Ko\'rinmas rejim (ruxsatlilarda)'],['keepDeleted','O\'chirilganlarni saqlash (ruxsatlilarda)'],['inbox','"Xabarchi uz" xabarlar kartasi'],['promo','Kanal tavsiyasi kartasi']];
 function renderFeatures(off){
   var box=$('featList');box.innerHTML='';
   FEATURES.forEach(function(f){
@@ -207,7 +267,7 @@ function checkRelays(){
     }).catch(function(){line.textContent='❌ '+u+' · javob yo\'q';});
   });
 }
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats();loadConfig();loadPay(); }
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;buildTabs();load();loadUsers();loadStats();loadConfig();loadPay();loadMessages(); }
 function loadStats(){
   var f=function(n){return (n||0).toLocaleString('ru-RU');};
   api('GET','/admin/stats').then(function(s){
@@ -288,6 +348,16 @@ $('psave').onclick=function(){
 $('ptest').onclick=function(){
   msg($('pmsg'),'Tekshirilmoqda…',true);
   api('POST','/admin/pay/test',{}).then(function(r){if(r.ok)msg($('pmsg'),'✅ Ulandi: '+(r.name||'')+' · limit '+Number(r.min).toLocaleString('ru-RU')+' – '+Number(r.max).toLocaleString('ru-RU')+' so\'m',true);else msg($('pmsg'),'❌ '+(r.error||'Xato'));}).catch(function(e){msg($('pmsg'),e.message);});
+};
+$('mTo').onchange=function(){$('mIds').hidden=$('mTo').value!=='some';};
+$('msend').onclick=function(){
+  var body={title:$('mTitle').value.trim(),body:$('mBody').value.trim(),url:$('mUrl').value.trim(),btn:$('mBtn').value.trim(),to:$('mTo').value==='all'?'all':$('mIds').value};
+  if(!body.body){msg($('mmsg'),'Xabar matnini yozing');return;}
+  if(!confirm($('mTo').value==='all'?'Xabar HAMMAGA yuborilsinmi?':'Xabar tanlanganlarga yuborilsinmi?'))return;
+  api('POST','/admin/messages',body).then(function(){msg($('mmsg'),'Yuborildi ✅ (ilovalar 5 daqiqagacha oladi)',true);$('mTitle').value='';$('mBody').value='';$('mUrl').value='';$('mBtn').value='';loadMessages();}).catch(function(e){msg($('mmsg'),e.message);});
+};
+$('ksave').onclick=function(){
+  api('POST','/admin/config',{promoUser:$('kUser').value.trim(),promoTitle:$('kTitle').value.trim(),promoText:$('kText').value.trim()}).then(function(){msg($('kmsg'),'Saqlandi ✅',true);}).catch(function(e){msg($('kmsg'),e.message);});
 };
 $('rcheck').onclick=checkRelays;
 $('rsave').onclick=function(){

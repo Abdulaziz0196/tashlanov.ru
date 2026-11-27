@@ -46,6 +46,8 @@ b{color:var(--text)}
 //   Payments (subscription; see the pay page): GET /pay/quote?uid=, POST /pay/create {uid} (PayHamyon, so&#x27;m),
 //   GET /pay/status?id=&amp;uid=, POST /pay/callback?k=, POST /pay/rub {uid, bank, rub, at, contact} (rubles, confirmed by hand);
 //   /admin/pay (GET payments + settings, POST settings), /admin/pay/approve, /admin/pay/reject, /admin/pay/test
+//   GET  /inbox?uid=&lt;id&gt;&amp;after=&lt;id&gt;  the messages from the admin for this account (to everybody or to chosen accounts), newest last
+//   /admin/messages        list (GET), send (POST {title, body, url, btn, to: &quot;all&quot; | &quot;123,456&quot;}), delete (DELETE ?id=)
 //   /admin/config          read (GET) and save (POST) /config; `relays` = the relay servers of the apps, one https address per line
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare);
@@ -128,6 +130,10 @@ async function db(env) {
     await env.DB.prepare(&#x27;INSERT OR IGNORE INTO user_platforms (h, platform, version, first, last) SELECT h, platform, \&#x27;\&#x27;, first, last FROM users&#x27;).run();
     await env.DB.prepare(&#x27;INSERT OR IGNORE INTO daily_p (day, h, platform, visits) SELECT day, h, platform, 1 FROM daily&#x27;).run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fails (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0)`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT &#x27;&#x27;, body TEXT NOT NULL DEFAULT &#x27;&#x27;, url TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      btn TEXT NOT NULL DEFAULT &#x27;&#x27;, audience TEXT NOT NULL DEFAULT &#x27;all&#x27;, created INTEGER NOT NULL DEFAULT 0
+    )`).run();
     await env.DB.prepare(&#x27;CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT \&#x27;\&#x27;)&#x27;).run();
     try { await env.DB.prepare(&#x27;ALTER TABLE access ADD COLUMN pro_until INTEGER NOT NULL DEFAULT 0&#x27;).run(); } catch(e) {}
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS paycfg (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT &#x27;&#x27;)`).run();
@@ -169,7 +175,7 @@ function clean(value, max) {
   return String(value ?? &#x27;&#x27;).slice(0, max);
 }
 
-const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: &#x27;Yangilash kerak&#x27;, updateMessage: &#x27;Xabarchi\&#x27;ning yangi versiyasi chiqdi. Saytdan yangilang.&#x27;, payTitle: &#x27;Obuna kerak&#x27;, payMessage: &#x27;Davom etish uchun Xabarchi obunasini yoqing.&#x27;, url: &#x27;https://abdulaziz0196.github.io/tashlanov.ru/abugram/&#x27;, relays: &#x27;&#x27;, off: &#x27;&#x27;};
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: &#x27;Yangilash kerak&#x27;, updateMessage: &#x27;Xabarchi\&#x27;ning yangi versiyasi chiqdi. Saytdan yangilang.&#x27;, payTitle: &#x27;Obuna kerak&#x27;, payMessage: &#x27;Davom etish uchun Xabarchi obunasini yoqing.&#x27;, url: &#x27;https://abdulaziz0196.github.io/tashlanov.ru/abugram/&#x27;, relays: &#x27;&#x27;, off: &#x27;&#x27;, promoUser: &#x27;my_aboutuz&#x27;, promoTitle: &#x27;Xabarchi uz yangiliklari&#x27;, promoText: &#x27;Yangiliklar, yordam va qo\&#x27;llanma&#x27;};
 // the relay servers as a list: https addresses only, at most 8
 function relayList(text) {
   return String(text || &#x27;&#x27;).split(/\s+/).map((x) =&gt; x.trim().replace(/\/+$/, &#x27;&#x27;)).filter((x) =&gt; /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(x)).slice(0, 8);
@@ -606,6 +612,48 @@ async function handleAds(request, env, url) {
     if(r) return r;
   }
 
+  if(path === &#x27;/inbox&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const d = await db(env);
+    if(!d) return J({messages: []});
+    const uid = Number(url.searchParams.get(&#x27;uid&#x27;));
+    const after = Math.max(0, Number(url.searchParams.get(&#x27;after&#x27;)) || 0);
+    if(!Number.isSafeInteger(uid) || uid &lt;= 0) return J({error: &#x27;uid&#x27;}, 400);
+    const {results} = await d.prepare(&quot;SELECT id, title, body, url, btn, created FROM messages WHERE id &gt; ? AND (audience = &#x27;all&#x27; OR audience LIKE ?) ORDER BY id ASC LIMIT 100&quot;).bind(after, &#x27;%,&#x27; + uid + &#x27;,%&#x27;).all();
+    return J({messages: results}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/admin/messages&#x27;) {
+    const d = await db(env);
+    if(!d) return J({error: &#x27;no database bound as DB&#x27;}, 500);
+    const denied = await adminGate(request, env, d);
+    if(denied) return denied;
+    if(request.method === &#x27;GET&#x27;) {
+      const {results} = await d.prepare(&#x27;SELECT * FROM messages ORDER BY id DESC LIMIT 100&#x27;).all();
+      return J({messages: results}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+    }
+    if(request.method === &#x27;POST&#x27;) {
+      const b = await request.json();
+      const body = clean(b.body, 1500).trim();
+      if(!body) return J({error: &#x27;Xabar matnini yozing&#x27;}, 400);
+      const link = clean(b.url, 500).trim();
+      if(link &amp;&amp; !/^https:\/\//i.test(link)) return J({error: &#x27;Havola https:// bilan boshlanishi kerak&#x27;}, 400);
+      let audience = &#x27;all&#x27;;
+      const to = String(b.to || &#x27;all&#x27;).trim();
+      if(to !== &#x27;all&#x27;) {
+        const ids = [...new Set(to.split(/[\s,;]+/).map(Number).filter((n) =&gt; Number.isSafeInteger(n) &amp;&amp; n &gt; 0))].slice(0, 500);
+        if(!ids.length) return J({error: &#x27;Telegram ID raqamlarini yozing yoki &quot;Hammaga&quot; ni tanlang&#x27;}, 400);
+        audience = &#x27;,&#x27; + ids.join(&#x27;,&#x27;) + &#x27;,&#x27;;
+      }
+      const r = await d.prepare(&#x27;INSERT INTO messages (title, body, url, btn, audience, created) VALUES (?, ?, ?, ?, ?, ?)&#x27;)
+        .bind(clean(b.title, 80).trim(), body, link, clean(b.btn, 30).trim(), audience, Date.now()).run();
+      return J({ok: true, id: r.meta.last_row_id});
+    }
+    if(request.method === &#x27;DELETE&#x27;) {
+      await d.prepare(&#x27;DELETE FROM messages WHERE id = ?&#x27;).bind(Number(url.searchParams.get(&#x27;id&#x27;))).run();
+      return J({ok: true});
+    }
+  }
+
   if(path === &#x27;/config&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
     const cfg = await getConfig(env);
     return J({...cfg, minBuild: await effectiveMinBuild(cfg), relays: relayList(cfg.relays), off: offList(cfg.off)}, 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
@@ -622,7 +670,7 @@ async function handleAds(request, env, url) {
       const stmts = [];
       for(const k of Object.keys(CONFIG_DEFAULT)) {
         if(!(k in b)) continue;
-        const v = k === &#x27;relays&#x27; ? relayList(b[k]).join(&#x27;\n&#x27;) : k === &#x27;off&#x27; ? offList(b[k]).join(&#x27;,&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;boolean&#x27; ? (b[k] ? &#x27;1&#x27; : &#x27;0&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;number&#x27; ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        const v = k === &#x27;promoUser&#x27; ? (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(String(b[k]).replace(/^@/, &#x27;&#x27;)) ? String(b[k]).replace(/^@/, &#x27;&#x27;) : &#x27;&#x27;) : k === &#x27;relays&#x27; ? relayList(b[k]).join(&#x27;\n&#x27;) : k === &#x27;off&#x27; ? offList(b[k]).join(&#x27;,&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;boolean&#x27; ? (b[k] ? &#x27;1&#x27; : &#x27;0&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;number&#x27; ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
         if(k === &#x27;url&#x27; &amp;&amp; v &amp;&amp; !/^https:\/\//i.test(v)) return J({error: &#x27;Havola https:// bilan boshlanishi kerak&#x27;}, 400);
         stmts.push(d.prepare(&#x27;INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v&#x27;).bind(k, v));
       }
@@ -728,7 +776,7 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27; || url.pathname === &#x27;/config&#x27; || url.pathname.startsWith(&#x27;/pay/&#x27;)) {
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27; || url.pathname === &#x27;/config&#x27; || url.pathname === &#x27;/inbox&#x27; || url.pathname.startsWith(&#x27;/pay/&#x27;)) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -737,7 +785,7 @@ export default {
         return json({error: &#x27;server xatosi&#x27;}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v13).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v14).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>

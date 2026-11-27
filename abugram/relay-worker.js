@@ -21,6 +21,8 @@
 //   Payments (subscription; see the pay page): GET /pay/quote?uid=, POST /pay/create {uid} (PayHamyon, so'm),
 //   GET /pay/status?id=&uid=, POST /pay/callback?k=, POST /pay/rub {uid, bank, rub, at, contact} (rubles, confirmed by hand);
 //   /admin/pay (GET payments + settings, POST settings), /admin/pay/approve, /admin/pay/reject, /admin/pay/test
+//   GET  /inbox?uid=<id>&after=<id>  the messages from the admin for this account (to everybody or to chosen accounts), newest last
+//   /admin/messages        list (GET), send (POST {title, body, url, btn, to: "all" | "123,456"}), delete (DELETE ?id=)
 //   /admin/config          read (GET) and save (POST) /config; `relays` = the relay servers of the apps, one https address per line
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with "Authorization: Bearer <ADMIN_PASSWORD>" (a secret set in Cloudflare);
@@ -103,6 +105,10 @@ async function db(env) {
     await env.DB.prepare('INSERT OR IGNORE INTO user_platforms (h, platform, version, first, last) SELECT h, platform, \'\', first, last FROM users').run();
     await env.DB.prepare('INSERT OR IGNORE INTO daily_p (day, h, platform, visits) SELECT day, h, platform, 1 FROM daily').run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fails (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0)`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
+      btn TEXT NOT NULL DEFAULT '', audience TEXT NOT NULL DEFAULT 'all', created INTEGER NOT NULL DEFAULT 0
+    )`).run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT \'\')').run();
     try { await env.DB.prepare('ALTER TABLE access ADD COLUMN pro_until INTEGER NOT NULL DEFAULT 0').run(); } catch(e) {}
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS paycfg (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT '')`).run();
@@ -144,7 +150,7 @@ function clean(value, max) {
   return String(value ?? '').slice(0, max);
 }
 
-const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: 'Yangilash kerak', updateMessage: 'Xabarchi\'ning yangi versiyasi chiqdi. Saytdan yangilang.', payTitle: 'Obuna kerak', payMessage: 'Davom etish uchun Xabarchi obunasini yoqing.', url: 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/', relays: '', off: ''};
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: 'Yangilash kerak', updateMessage: 'Xabarchi\'ning yangi versiyasi chiqdi. Saytdan yangilang.', payTitle: 'Obuna kerak', payMessage: 'Davom etish uchun Xabarchi obunasini yoqing.', url: 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/', relays: '', off: '', promoUser: 'my_aboutuz', promoTitle: 'Xabarchi uz yangiliklari', promoText: 'Yangiliklar, yordam va qo\'llanma'};
 // the relay servers as a list: https addresses only, at most 8
 function relayList(text) {
   return String(text || '').split(/\s+/).map((x) => x.trim().replace(/\/+$/, '')).filter((x) => /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(x)).slice(0, 8);
@@ -581,6 +587,48 @@ async function handleAds(request, env, url) {
     if(r) return r;
   }
 
+  if(path === '/inbox' && request.method === 'GET') {
+    const d = await db(env);
+    if(!d) return J({messages: []});
+    const uid = Number(url.searchParams.get('uid'));
+    const after = Math.max(0, Number(url.searchParams.get('after')) || 0);
+    if(!Number.isSafeInteger(uid) || uid <= 0) return J({error: 'uid'}, 400);
+    const {results} = await d.prepare("SELECT id, title, body, url, btn, created FROM messages WHERE id > ? AND (audience = 'all' OR audience LIKE ?) ORDER BY id ASC LIMIT 100").bind(after, '%,' + uid + ',%').all();
+    return J({messages: results}, 200, {'cache-control': 'no-store'});
+  }
+
+  if(path === '/admin/messages') {
+    const d = await db(env);
+    if(!d) return J({error: 'no database bound as DB'}, 500);
+    const denied = await adminGate(request, env, d);
+    if(denied) return denied;
+    if(request.method === 'GET') {
+      const {results} = await d.prepare('SELECT * FROM messages ORDER BY id DESC LIMIT 100').all();
+      return J({messages: results}, 200, {'cache-control': 'no-store'});
+    }
+    if(request.method === 'POST') {
+      const b = await request.json();
+      const body = clean(b.body, 1500).trim();
+      if(!body) return J({error: 'Xabar matnini yozing'}, 400);
+      const link = clean(b.url, 500).trim();
+      if(link && !/^https:\/\//i.test(link)) return J({error: 'Havola https:// bilan boshlanishi kerak'}, 400);
+      let audience = 'all';
+      const to = String(b.to || 'all').trim();
+      if(to !== 'all') {
+        const ids = [...new Set(to.split(/[\s,;]+/).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0))].slice(0, 500);
+        if(!ids.length) return J({error: 'Telegram ID raqamlarini yozing yoki "Hammaga" ni tanlang'}, 400);
+        audience = ',' + ids.join(',') + ',';
+      }
+      const r = await d.prepare('INSERT INTO messages (title, body, url, btn, audience, created) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(clean(b.title, 80).trim(), body, link, clean(b.btn, 30).trim(), audience, Date.now()).run();
+      return J({ok: true, id: r.meta.last_row_id});
+    }
+    if(request.method === 'DELETE') {
+      await d.prepare('DELETE FROM messages WHERE id = ?').bind(Number(url.searchParams.get('id'))).run();
+      return J({ok: true});
+    }
+  }
+
   if(path === '/config' && request.method === 'GET') {
     const cfg = await getConfig(env);
     return J({...cfg, minBuild: await effectiveMinBuild(cfg), relays: relayList(cfg.relays), off: offList(cfg.off)}, 200, {'cache-control': 'public, max-age=60'});
@@ -597,7 +645,7 @@ async function handleAds(request, env, url) {
       const stmts = [];
       for(const k of Object.keys(CONFIG_DEFAULT)) {
         if(!(k in b)) continue;
-        const v = k === 'relays' ? relayList(b[k]).join('\n') : k === 'off' ? offList(b[k]).join(',') : typeof CONFIG_DEFAULT[k] === 'boolean' ? (b[k] ? '1' : '0') : typeof CONFIG_DEFAULT[k] === 'number' ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        const v = k === 'promoUser' ? (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(String(b[k]).replace(/^@/, '')) ? String(b[k]).replace(/^@/, '') : '') : k === 'relays' ? relayList(b[k]).join('\n') : k === 'off' ? offList(b[k]).join(',') : typeof CONFIG_DEFAULT[k] === 'boolean' ? (b[k] ? '1' : '0') : typeof CONFIG_DEFAULT[k] === 'number' ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
         if(k === 'url' && v && !/^https:\/\//i.test(v)) return J({error: 'Havola https:// bilan boshlanishi kerak'}, 400);
         stmts.push(d.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, v));
       }
@@ -703,7 +751,7 @@ export default {
       const target = 'https://' + ws[1].toLowerCase() + '.web.telegram.org/' + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/') || url.pathname === '/access' || url.pathname === '/hello' || url.pathname === '/stats' || url.pathname === '/config' || url.pathname.startsWith('/pay/')) {
+    if(url.pathname === '/ads' || url.pathname.startsWith('/ads/') || url.pathname.startsWith('/go/') || url.pathname.startsWith('/admin/') || url.pathname === '/access' || url.pathname === '/hello' || url.pathname === '/stats' || url.pathname === '/config' || url.pathname === '/inbox' || url.pathname.startsWith('/pay/')) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -712,6 +760,6 @@ export default {
         return json({error: 'server xatosi'}, 500);
       }
     }
-    return new Response('Abugram relay is running (v13).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v14).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };
