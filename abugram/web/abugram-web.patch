@@ -665,10 +665,10 @@ index 9601966..f33404c 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/access.ts b/src/lib/abugram/access.ts
 new file mode 100644
-index 0000000..bb5e646
+index 0000000..051654b
 --- /dev/null
 +++ b/src/lib/abugram/access.ts
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,112 @@
 +/**
 + * Abugram: what this account may use, as the Abugram admin set it (relay /access): ghost mode for the accounts
 + * allowed it, the admin page link for admins. Everyone else gets neither; their ghost switches have no effect.
@@ -748,18 +748,37 @@ index 0000000..bb5e646
 +    button.style.cssText = 'padding:12px 28px;border-radius:12px;background:var(--primary-color,#6A5CFF);color:#fff;text-decoration:none;font-weight:600';
 +    box.append(title, text, button);
 +    document.body.append(box);
-+    // while the notice is up: look every 15 seconds whether the account has paid, or paid mode was switched off
-+    const timer = setInterval(async() => {
++    // while the notice is up the account is looked at again: every 5 seconds, and at once when the app comes back to the
++    // front (a phone stops timers while another app, like the pay page, is open), or when the button is pressed
++    let checking = false;
++    const recheck = async() => {
++      if(checking) return;
++      checking = true;
 +      try {
 +        const access = await (await fetch(base + '/access?uid=' + uid, {cache: 'no-store'})).json();
 +        const now = await (await fetch(base + '/config', {cache: 'no-store'})).json();
 +        if(access.pro || access.admin || !now.paid) {
 +          clearInterval(timer);
++          document.removeEventListener('visibilitychange', onShow);
++          window.removeEventListener('focus', recheck);
++          window.removeEventListener('pageshow', recheck);
 +          box.remove();
 +          gateShown = false;
 +        }
-+      } catch(err) {}
-+    }, 15000);
++      } catch(err) {} finally {
++        checking = false;
++      }
++    };
++    const onShow = () => { if(!document.hidden) recheck(); };
++    const timer = setInterval(recheck, 5000);
++    document.addEventListener('visibilitychange', onShow);
++    window.addEventListener('focus', recheck);
++    window.addEventListener('pageshow', recheck);
++    const paidButton = document.createElement('button');
++    paidButton.textContent = 'To\'lov qildim, tekshirish';
++    paidButton.style.cssText = 'padding:12px 28px;border-radius:12px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:600';
++    paidButton.onclick = () => recheck();
++    box.append(paidButton);
 +  } catch(err) {}
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
