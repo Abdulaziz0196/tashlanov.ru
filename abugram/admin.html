@@ -79,6 +79,15 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   </div>
   <h2>Reklamalar</h2>
   <div id="list"></div>
+  <h2>Relay serverlari</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Ilova Telegram'ga shu serverlar orqali ulanadi. Biri uzilsa, ikkinchisiga o'zi o'tadi. Ro'yxatning boshidagilari afzal; Cloudflare doim oxirgi zaxira bo'lib qoladi.</p>
+    <label for="cRelays">Server manzillari (har biri alohida qatorda, https:// bilan)</label>
+    <textarea id="cRelays" placeholder="https://1-2-3-4.sslip.io" style="min-height:90px"></textarea>
+    <div class="row" style="margin-top:14px"><button id="rsave">Saqlash</button><button class="ghost" id="rcheck">Tekshirish</button></div>
+    <div id="rstatus" class="ad-text" style="margin-top:10px"></div>
+    <div class="msg" id="rmsg"></div>
+  </div>
   <h2>Pullik rejim</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Hozir ilova bepul. Keyin pullik qilmoqchi bo'lsangiz, shu yerdan yoqasiz: eski versiyadagilarga ham ta'sir qiladi.</p>
@@ -117,7 +126,17 @@ function api(method,path,body){
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
 function loadConfig(){
-  api('GET','/admin/config').then(function(c){$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+  api('GET','/admin/config').then(function(c){$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
+}
+function checkRelays(){
+  var box=$('rstatus');box.textContent='';
+  $('cRelays').value.split(/\s+/).filter(function(u){return /^https:\/\//.test(u);}).forEach(function(u){
+    var line=document.createElement('div');line.textContent='⏳ '+u;box.appendChild(line);
+    var t0=performance.now();
+    fetch(u.replace(/\/+$/,'')+'/health',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      line.textContent=(j&&j.ok?'✅ ':'⚠️ ')+u+' · '+Math.round(performance.now()-t0)+' ms'+(j&&j.requests!=null?' · so\'rovlar: '+j.requests+', xato: '+j.failed:'');
+    }).catch(function(){line.textContent='❌ '+u+' · javob yo\'q';});
+  });
 }
 function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats();loadConfig(); }
 function loadStats(){
@@ -188,6 +207,10 @@ $('save').onclick=function(){
   api('POST','/admin/ads',body).then(function(){msg($('formMsg'),'Saqlandi ✅',true);fill(null);load();}).catch(function(e){msg($('formMsg'),e.message);});
 };
 $('reset').onclick=function(){fill(null);};
+$('rcheck').onclick=checkRelays;
+$('rsave').onclick=function(){
+  api('POST','/admin/config',{relays:$('cRelays').value}).then(function(){msg($('rmsg'),'Saqlandi ✅ (ilovalar 1–2 daqiqada biladi)',true);loadConfig();setTimeout(checkRelays,300);}).catch(function(e){msg($('rmsg'),e.message);});
+};
 $('csave').onclick=function(){
   if($('cPaid').checked&&!confirm('Pullik rejim yoqilsinmi? Obunasi yo\'q odamlar "Obuna kerak" ekranini ko\'radi.'))return;
   if(Number($('cMin').value)>0&&!confirm('Majburiy yangilash yoqilsinmi? Past versiyadagi Android ilovalar ulana olmaydi.'))return;

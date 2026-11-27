@@ -42,7 +42,7 @@ b{color:var(--text)}
 //   /admin/ads             list (GET), save (POST {id?, title, text, image, url, active}), delete (DELETE ?id=)
 //   /admin/stats           /stats plus the app versions in use (admin only)
 //   GET  /config           {paid, minBuild, ...}: what the apps check at start (an update is required / a paid period is required); both off while free
-//   /admin/config          read (GET) and save (POST) /config
+//   /admin/config          read (GET) and save (POST) /config; `relays` = the relay servers of the apps, one https address per line
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare);
 //                          5 wrong passwords lock the address out for 15 minutes; /admin/* and /access answer only the Abugram site&#x27;s origin
@@ -158,7 +158,11 @@ function clean(value, max) {
   return String(value ?? &#x27;&#x27;).slice(0, max);
 }
 
-const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: &#x27;Yangilash kerak&#x27;, updateMessage: &#x27;Xabarchi\&#x27;ning yangi versiyasi chiqdi. Saytdan yangilang.&#x27;, payTitle: &#x27;Obuna kerak&#x27;, payMessage: &#x27;Davom etish uchun Xabarchi obunasini yoqing.&#x27;, url: &#x27;https://abdulaziz0196.github.io/tashlanov.ru/abugram/&#x27;};
+const CONFIG_DEFAULT = {paid: false, minBuild: 0, updateTitle: &#x27;Yangilash kerak&#x27;, updateMessage: &#x27;Xabarchi\&#x27;ning yangi versiyasi chiqdi. Saytdan yangilang.&#x27;, payTitle: &#x27;Obuna kerak&#x27;, payMessage: &#x27;Davom etish uchun Xabarchi obunasini yoqing.&#x27;, url: &#x27;https://abdulaziz0196.github.io/tashlanov.ru/abugram/&#x27;, relays: &#x27;&#x27;};
+// the relay servers as a list: https addresses only, at most 8
+function relayList(text) {
+  return String(text || &#x27;&#x27;).split(/\s+/).map((x) =&gt; x.trim().replace(/\/+$/, &#x27;&#x27;)).filter((x) =&gt; /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(x)).slice(0, 8);
+}
 let configCache = null;
 async function getConfig(env) {
   if(configCache &amp;&amp; Date.now() &lt; configCache.until) return configCache.value;
@@ -297,7 +301,8 @@ async function handleAds(request, env, url) {
   }
 
   if(path === &#x27;/config&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
-    return J(await getConfig(env), 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
+    const cfg = await getConfig(env);
+    return J({...cfg, relays: relayList(cfg.relays)}, 200, {&#x27;cache-control&#x27;: &#x27;public, max-age=60&#x27;});
   }
 
   if(path === &#x27;/admin/config&#x27;) {
@@ -311,7 +316,7 @@ async function handleAds(request, env, url) {
       const stmts = [];
       for(const k of Object.keys(CONFIG_DEFAULT)) {
         if(!(k in b)) continue;
-        const v = typeof CONFIG_DEFAULT[k] === &#x27;boolean&#x27; ? (b[k] ? &#x27;1&#x27; : &#x27;0&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;number&#x27; ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
+        const v = k === &#x27;relays&#x27; ? relayList(b[k]).join(&#x27;\n&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;boolean&#x27; ? (b[k] ? &#x27;1&#x27; : &#x27;0&#x27;) : typeof CONFIG_DEFAULT[k] === &#x27;number&#x27; ? String(Math.max(0, Math.floor(Number(b[k]) || 0))) : clean(b[k], 400);
         if(k === &#x27;url&#x27; &amp;&amp; v &amp;&amp; !/^https:\/\//i.test(v)) return J({error: &#x27;Havola https:// bilan boshlanishi kerak&#x27;}, 400);
         stmts.push(d.prepare(&#x27;INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v&#x27;).bind(k, v));
       }
@@ -425,7 +430,7 @@ export default {
         return json({error: &#x27;server xatosi&#x27;}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v9).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v10).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
