@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Xabarchi uz — Obuna</title>
+<link rel="icon" href="web/assets/img/favicon-32x32.png">
+<style>
+:root{--bg:#0f0f17;--card:#1b1b27;--line:#2c2c3c;--text:#f2f2f7;--muted:#a3a3b5;--ok:#34c759;--bad:#ff453a;--a1:#6A5CFF;--a2:#00D5FF}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f8;--card:#fff;--line:#e3e3ea;--text:#14141c;--muted:#5d5d6e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:20px 16px 60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}.brand img{width:36px;height:36px;border-radius:9px}
+.lang{margin-left:auto;display:flex;gap:6px}.lang button{width:auto;padding:6px 12px;margin:0;font-size:13px;background:transparent;border:1px solid var(--line);color:var(--text)}
+.lang button.on{background:linear-gradient(90deg,var(--a1),var(--a2));border:0;color:#fff}
+h1{font-size:22px;margin:18px 0 4px}p.sub{color:var(--muted);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+.price{font-size:38px;font-weight:800;letter-spacing:-.02em}.old{color:var(--muted);text-decoration:line-through;font-size:18px;margin-left:8px;font-weight:600}
+.sub2{color:var(--muted);font-size:14px}
+.badge{display:inline-block;background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;border-radius:99px;padding:3px 12px;font-size:13px;font-weight:700;margin-top:8px}
+.tabs{display:flex;gap:8px;margin:14px 0 4px}.tabs button{flex:1;margin:0;background:transparent;color:var(--text);border:1px solid var(--line);padding:11px 8px;font-size:15px}
+.tabs button.on{border-color:var(--a1);background:rgba(106,92,255,.14)}
+button{width:100%;border:0;border-radius:12px;padding:14px;font:inherit;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--a1),var(--a2));cursor:pointer;margin-top:10px}
+button:disabled{opacity:.5}
+.copy{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0;font-variant-numeric:tabular-nums}
+.copy b{font-size:20px;letter-spacing:.02em}.copy span{color:var(--muted);font-size:13px}.copy button{width:auto;margin:0;padding:8px 14px;font-size:14px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}
+.warn{background:rgba(255,159,10,.12);border:1px solid rgba(255,159,10,.4);border-radius:12px;padding:10px 12px;font-size:14px;margin:10px 0}
+.ok{color:var(--ok);font-weight:700}.err{color:var(--bad)}
+.big{font-size:44px;text-align:center}
+[hidden]{display:none!important}
+</style></head><body><main>
+<div class="brand"><img src="logo.svg" alt="">Xabarchi <span style="color:var(--a2)">uz</span>
+  <div class="lang"><button id="lu" class="on">UZ</button><button id="lr">RU</button></div></div>
+
+<div id="noid" class="card" hidden>
+  <label id="t_idlabel"></label><input id="uidin" inputmode="numeric" placeholder="123456789">
+  <button id="idgo"></button>
+</div>
+
+<div id="main" hidden>
+  <h1 id="t_title"></h1><p class="sub" id="t_sub"></p>
+  <div id="active" class="card ok" hidden></div>
+  <div class="card">
+    <div><span class="price" id="price"></span><span class="old" id="old" hidden></span></div>
+    <div class="sub2" id="priceRub"></div>
+    <div id="disc" class="badge" hidden></div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div id="paneCard" class="card" hidden>
+    <div id="cardStart"><div class="sub2" id="t_cardinfo"></div><button id="payBtn"></button><div id="cardErr" class="err"></div></div>
+    <div id="cardShow" hidden>
+      <div class="warn" id="t_exact"></div>
+      <div class="copy"><div><span id="t_cardno"></span><br><b id="cardNo"></b></div><button data-copy="cardNo" class="cp"></button></div>
+      <div class="copy"><div><span id="t_amount"></span><br><b id="cardAmt"></b></div><button data-copy="cardAmtRaw" class="cp"></button></div>
+      <div class="sub2" id="timer"></div>
+      <div class="sub2" id="t_wait"></div>
+    </div>
+  </div>
+
+  <div id="paneRub" class="card" hidden>
+    <div class="warn" id="t_rubhow"></div>
+    <div class="copy"><div><span id="t_rubcard"></span><br><b id="rubCard"></b></div><button data-copy="rubCardRaw" class="cp"></button></div>
+    <div class="sub2" id="rubNote"></div>
+    <div id="rubForm">
+      <label id="t_bank"></label>
+      <select id="bank"><option>Sber</option><option>T-Bank (Tinkoff)</option><option>VTB</option><option>Alfa-Bank</option><option>Raiffeisen</option><option>Gazprombank</option><option>Boshqa / Другой</option></select>
+      <label id="t_rubsent"></label><input id="rubAmt" inputmode="decimal">
+      <label id="t_time"></label><input id="rubAt" placeholder="14:05">
+      <label id="t_contact"></label><input id="rubContact" placeholder="@username">
+      <button id="rubBtn"></button><div id="rubErr" class="err"></div>
+    </div>
+    <div id="rubDone" hidden class="ok"></div>
+  </div>
+
+  <div id="success" class="card" hidden><div class="big">✅</div><h1 id="t_ok" style="text-align:center"></h1><p class="sub" id="okUntil" style="text-align:center"></p></div>
+  <p class="sub2" id="t_foot"></p>
+</div>
+<div id="fatal" class="card err" hidden></div>
+</main>
+<script>
+var RELAY='https://winter-cake-2d11.tashlanow.workers.dev';
+var $=function(i){return document.getElementById(i);};
+var lang=(function(){try{var l=localStorage.getItem('xab-lang');if(l)return l;}catch(e){}return /^ru/i.test(navigator.language)?'ru':'uz';})();
+var TXT={
+ title:['Obuna','Подписка'],sub:['Xabarchi uz\'dan to\'liq foydalanish uchun obunani to\'lang.','Оплатите подписку, чтобы пользоваться Xabarchi uz.'],
+ idlabel:['Telegram ID raqamingiz (Sozlamalar → Xabarchi → ID)','Ваш Telegram ID (Настройки → Xabarchi → ID)'],idgo:['Davom etish','Продолжить'],
+ cardinfo:['Humo yoki Uzcard kartasi bilan, so\'mda. Pul avtomatik hisoblanadi.','Картой Humo или Uzcard, в сумах. Оплата засчитывается автоматически.'],pay:['To\'lash','Оплатить'],
+ exact:['Aynan shu summani o\'tkazing (tiyin raqamlari bilan). Boshqa summa avtomatik hisoblanmaydi.','Переведите именно эту сумму (с последними цифрами). Другая сумма не засчитается автоматически.'],
+ cardno:['Karta raqami','Номер карты'],amount:['Summa (so\'m)','Сумма (сум)'],copy:['Nusxa','Копия'],copied:['✓','✓'],
+ wait:['To\'lovni kutamiz… sahifani yopmang.','Ждём платёж… не закрывайте страницу.'],left:['Qolgan vaqt','Осталось'],
+ rubhow:['Rossiya bankidan quyidagi kartaga karta raqami bo\'yicha o\'tkazing. Kurs bankka qarab farq qiladi, shuning uchun to\'lov qo\'lda tekshiriladi.','Переведите из российского банка на карту ниже по номеру карты. Курс зависит от банка, поэтому платёж проверяется вручную.'],
+ rubcard:['Karta raqami','Номер карты'],bank:['Qaysi bankdan yubordingiz','Из какого банка отправили'],rubsent:['Yuborgan summangiz (₽)','Отправленная сумма (₽)'],
+ time:['Yuborgan vaqtingiz (soat:daqiqa)','Время отправки (чч:мм)'],contact:['Aloqa (ixtiyoriy)','Контакт (по желанию)'],rubbtn:['To\'ladim, tekshiring','Я оплатил(а), проверьте'],
+ rubdone:['✅ So\'rov yuborildi. Odatda 1–2 soat ichida tasdiqlanadi. Bu sahifani yopib qo\'yishingiz mumkin, ilova o\'zi yangilanadi.','✅ Заявка отправлена. Обычно подтверждаем за 1–2 часа. Страницу можно закрыть, приложение обновится само.'],
+ ok:['To\'lov qabul qilindi!','Оплата принята!'],until:['Obuna tugaydi:','Подписка действует до:'],
+ foot:['Savol bo\'lsa, ilovadagi aloqa orqali yozing. To\'lov ma\'lumotlari saqlanadi, karta kodlari so\'ralmaydi.','Вопросы — через контакт в приложении. Мы не запрашиваем коды и пароли карт.'],
+ tabcard:['💳 Karta (so\'m)','💳 Карта (сум)'],tabrub:['🇷🇺 Rossiyadan (₽)','🇷🇺 Из России (₽)'],
+ active:['Obunangiz faol:','Подписка активна:'],disc:['-{p}% chegirma · yana','-{p}% скидка · ещё'],
+ expired:['To\'lov vaqti tugadi. Qayta urining.','Время платежа истекло. Попробуйте снова.'],fail:['Xato','Ошибка'],approx:['≈','≈']
+};
+function t(k){return TXT[k][lang==='ru'?1:0];}
+function fmt(n){return Number(n).toLocaleString('ru-RU').replace(/ /g,' ');}
+function setStatic(){
+  [['t_title','title'],['t_sub','sub'],['t_idlabel','idlabel'],['idgo','idgo'],['t_cardinfo','cardinfo'],['payBtn','pay'],['t_exact','exact'],['t_cardno','cardno'],['t_amount','amount'],['t_wait','wait'],['t_rubhow','rubhow'],['t_rubcard','rubcard'],['t_bank','bank'],['t_rubsent','rubsent'],['t_time','time'],['t_contact','contact'],['rubBtn','rubbtn'],['rubDone','rubdone'],['t_ok','ok'],['t_foot','foot']].forEach(function(p){$(p[0]).textContent=t(p[1]);});
+  [].forEach.call(document.querySelectorAll('.cp'),function(b){b.textContent=t('copy');});
+  $('lu').className=lang==='uz'?'on':'';$('lr').className=lang==='ru'?'on':'';
+}
+function setLang(l){lang=l;try{localStorage.setItem('xab-lang',l);}catch(e){}setStatic();if(Q)render();}
+$('lu').onclick=function(){setLang('uz');};$('lr').onclick=function(){setLang('ru');};
+
+var uid=Number(new URLSearchParams(location.search).get('uid'))||0;
+if(!uid){try{uid=Number(localStorage.getItem('xab-uid'))||0;}catch(e){}}
+var Q=null,tab=null,pollTimer=null,clockTimer=null,payment=null;
+function api(path,opt){return fetch(RELAY+path,opt).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;});});}
+function dateStr(ms){return new Date(ms).toLocaleDateString('ru-RU');}
+
+function render(){
+  var q=Q;
+  $('price').textContent=fmt(q.finalUzs)+' '+(lang==='ru'?'сум':'so\'m');
+  $('old').hidden=!q.discount;if(q.discount)$('old').textContent=fmt(q.priceUzs);
+  $('priceRub').textContent=q.rubFinal>0?t('approx')+' '+fmt(q.rubFinal)+' ₽ / '+q.days+(lang==='ru'?' дн.':' kun'):(q.days+(lang==='ru'?' дн.':' kun'));
+  $('disc').hidden=!q.discount;
+  if(q.proUntil>Date.now()){$('active').hidden=false;$('active').textContent=t('active')+' '+dateStr(q.proUntil);}else $('active').hidden=true;
+  var tabs=$('tabs');tabs.innerHTML='';
+  var list=[];if(q.methods.payhamyon)list.push(['card','tabcard']);if(q.methods.rub)list.push(['rub','tabrub']);
+  if(!tab||!list.some(function(x){return x[0]===tab;}))tab=list.length?list[0][0]:null;
+  list.forEach(function(x){var b=document.createElement('button');b.textContent=t(x[1]);b.className=tab===x[0]?'on':'';b.onclick=function(){tab=x[0];render();};tabs.appendChild(b);});
+  $('paneCard').hidden=tab!=='card';$('paneRub').hidden=tab!=='rub';
+  if(!list.length){$('cardErr').textContent='';}
+  $('rubCard').textContent=q.rubCard||'';$('rubNote').textContent=q.rubNote||'';
+  if(!$('rubAmt').value&&q.rubFinal)$('rubAmt').value=q.rubFinal;
+  clock();
+}
+function clock(){
+  if(Q&&Q.discount){var left=Q.discount.endsAt-Date.now();if(left>0){var s=Math.floor(left/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60;$('disc').textContent=t('disc').replace('{p}',Q.discount.pct)+' '+('0'+h).slice(-2)+':'+('0'+m).slice(-2)+':'+('0'+sec).slice(-2);}else{$('disc').hidden=true;}}
+  if(payment&&payment.expires){var l=payment.expires-Date.now();$('timer').textContent=l>0?t('left')+': '+Math.floor(l/60000)+':'+('0'+Math.floor(l%60000/1000)).slice(-2):t('expired');}
+}
+function load(){
+  return api('/pay/quote?uid='+uid).then(function(q){Q=q;$('noid').hidden=true;$('main').hidden=false;try{localStorage.setItem('xab-uid',String(uid));}catch(e){}render();resume();});
+}
+function copyOf(id,btn){var el=$(id);var text=(el.dataset&&el.dataset.raw)||el.textContent;
+  (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).catch(function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);try{document.execCommand('copy');}catch(e){}}).then(function(){var o=btn.textContent;btn.textContent=t('copied');setTimeout(function(){btn.textContent=o;},1200);});}
+[].forEach.call(document.querySelectorAll('.cp'),function(b){b.onclick=function(){var id=b.dataset.copy;if(id==='cardAmtRaw'){var tmp=$('cardAmt');copyOf('cardAmt',b);}else if(id==='rubCardRaw'){copyOf('rubCard',b);}else copyOf(id,b);};});
+
+function showSuccess(proUntil){
+  clearInterval(pollTimer);
+  ['paneCard','paneRub','tabs','disc'].forEach(function(i){$(i).hidden=true;});
+  $('success').hidden=false;$('okUntil').textContent=proUntil?t('until')+' '+dateStr(proUntil):'';
+}
+function poll(){
+  clearInterval(pollTimer);
+  if(!payment)return;
+  pollTimer=setInterval(function(){
+    api('/pay/status?id='+payment.id+'&uid='+uid).then(function(s){
+      if(s.status==='paid')showSuccess(s.proUntil);
+      else if(s.status==='expired'||s.status==='rejected'){clearInterval(pollTimer);payment=null;$('cardShow').hidden=true;$('cardStart').hidden=false;$('cardErr').textContent=t('expired');try{localStorage.removeItem('xab-pay');}catch(e){}}
+    }).catch(function(){});
+  },4000);
+}
+function resume(){
+  try{var p=JSON.parse(localStorage.getItem('xab-pay')||'null');if(p&&p.uid===uid){payment=p;
+    if(p.method==='card'&&p.expires>Date.now()){showCard(p);}else if(p.method==='rub'){$('rubForm').hidden=true;$('rubDone').hidden=false;tab='rub';render();poll();}
+  }}catch(e){}
+}
+function showCard(p){
+  $('cardStart').hidden=true;$('cardShow').hidden=false;
+  $('cardNo').textContent=p.card;$('cardAmt').textContent=fmt(p.payAmount);$('cardAmt').dataset.raw=String(p.payAmount);
+  poll();clock();
+}
+$('payBtn').onclick=function(){
+  var b=$('payBtn');b.disabled=true;$('cardErr').textContent='';
+  api('/pay/create',{method:'POST',body:JSON.stringify({uid:uid})}).then(function(r){
+    payment={id:r.id,uid:uid,method:'card',card:r.card,payAmount:r.payAmount,expires:r.expires};
+    try{localStorage.setItem('xab-pay',JSON.stringify(payment));}catch(e){}
+    showCard(payment);
+  }).catch(function(e){$('cardErr').textContent=e.message;}).then(function(){b.disabled=false;});
+};
+$('rubBtn').onclick=function(){
+  var b=$('rubBtn');b.disabled=true;$('rubErr').textContent='';
+  api('/pay/rub',{method:'POST',body:JSON.stringify({uid:uid,bank:$('bank').value,rub:Number(String($('rubAmt').value).replace(',','.')),at:$('rubAt').value,contact:$('rubContact').value})}).then(function(r){
+    payment={id:r.id,uid:uid,method:'rub'};try{localStorage.setItem('xab-pay',JSON.stringify(payment));}catch(e){}
+    $('rubForm').hidden=true;$('rubDone').hidden=false;poll();
+  }).catch(function(e){$('rubErr').textContent=e.message;}).then(function(){b.disabled=false;});
+};
+$('idgo').onclick=function(){uid=Number(String($('uidin').value).replace(/\D/g,''))||0;if(uid)load().catch(fail);};
+function fail(e){$('fatal').hidden=false;$('fatal').textContent=t('fail')+': '+(e&&e.message||'');}
+setStatic();
+setInterval(clock,1000);
+if(uid)load().catch(fail);else $('noid').hidden=false;
+</script></body></html>
