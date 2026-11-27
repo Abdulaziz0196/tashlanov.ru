@@ -143,6 +143,28 @@ function relayList(text) {
 function offList(text) {
   return String(text || '').split(/[\s,]+/).filter((x) => /^[A-Za-z0-9_]{1,24}$/.test(x)).slice(0, 30);
 }
+// A minimum build above the newest published one would lock everybody out (nobody can have it), so it is ignored; the
+// newest build is read from the app's latest GitHub release (kept 10 minutes). If that cannot be read, a number above 1000 is ignored.
+let latestBuild = {v: 0, until: 0};
+async function getLatestBuild() {
+  if(Date.now() < latestBuild.until) return latestBuild.v;
+  try {
+    const r = await fetch('https://api.github.com/repos/Abdulaziz0196/abugram-android/releases/latest', {headers: {'user-agent': 'xabarchi-relay', 'accept': 'application/vnd.github+json'}});
+    const j = await r.json();
+    const n = parseInt(String(j.tag_name || '').split('-').pop(), 10);
+    latestBuild = n > 0 ? {v: n, until: Date.now() + 600e3} : {v: latestBuild.v, until: Date.now() + 60e3};
+  } catch(e) {
+    latestBuild = {v: latestBuild.v, until: Date.now() + 60e3};
+  }
+  return latestBuild.v;
+}
+async function effectiveMinBuild(cfg) {
+  const raw = Number(cfg.minBuild) || 0;
+  if(raw <= 0) return 0;
+  const latest = await getLatestBuild();
+  if(latest > 0) return raw > latest ? 0 : raw; // above the newest build nobody can satisfy it: ignored
+  return raw > 1000 ? 0 : raw;
+}
 let configCache = null;
 async function getConfig(env) {
   if(configCache && Date.now() < configCache.until) return configCache.value;
@@ -282,7 +304,7 @@ async function handleAds(request, env, url) {
 
   if(path === '/config' && request.method === 'GET') {
     const cfg = await getConfig(env);
-    return J({...cfg, relays: relayList(cfg.relays), off: offList(cfg.off)}, 200, {'cache-control': 'public, max-age=60'});
+    return J({...cfg, minBuild: await effectiveMinBuild(cfg), relays: relayList(cfg.relays), off: offList(cfg.off)}, 200, {'cache-control': 'public, max-age=60'});
   }
 
   if(path === '/admin/config') {
@@ -382,8 +404,9 @@ export default {
     if((http || url.pathname.match(WS_ROUTE)) && !request.headers.get('origin') && env.DB) {
       const cfg = await getConfig(env);
       const build = Number(request.headers.get('x-abugram-build') || 0);
-      if(cfg.minBuild > 0 && build < cfg.minBuild) {
-        return new Response(JSON.stringify({error: 'update', minBuild: cfg.minBuild}), {status: 426, headers: {'content-type': 'application/json', ...SAFE}});
+      const minBuild = await effectiveMinBuild(cfg);
+      if(minBuild > 0 && build < minBuild) {
+        return new Response(JSON.stringify({error: 'update', minBuild}), {status: 426, headers: {'content-type': 'application/json', ...SAFE}});
       }
     }
     if(http) {
@@ -410,6 +433,6 @@ export default {
         return json({error: 'server xatosi'}, 500);
       }
     }
-    return new Response('Abugram relay is running (v11).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
+    return new Response('Abugram relay is running (v12).', {headers: {'content-type': 'text/plain; charset=utf-8'}});
   }
 };
