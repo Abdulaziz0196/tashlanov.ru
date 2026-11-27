@@ -1,5 +1,5 @@
 diff --git a/public/site.webmanifest b/public/site.webmanifest
-index d1a88ff..b4fff64 100644
+index d1a88ff..2aed70d 100644
 --- a/public/site.webmanifest
 +++ b/public/site.webmanifest
 @@ -1,7 +1,7 @@
@@ -7,8 +7,8 @@ index d1a88ff..b4fff64 100644
 -    "name": "Telegram Web",
 -    "short_name": "Telegram Web",
 -    "id": "/k/",
-+    "name": "Xabarchi",
-+    "short_name": "Xabarchi",
++    "name": "Xabarchi uz",
++    "short_name": "Xabarchi uz",
 +    "id": "./",
      "start_url": "./",
      "scope": "./",
@@ -23,7 +23,7 @@ index d1a88ff..b4fff64 100644
          {
              "src": "assets/img/android-chrome-36x36.png?v=jw3mK7G9Ry",
 diff --git a/public/site_apple.webmanifest b/public/site_apple.webmanifest
-index 137f1e2..72c53e6 100644
+index 137f1e2..2cd4b56 100644
 --- a/public/site_apple.webmanifest
 +++ b/public/site_apple.webmanifest
 @@ -1,7 +1,7 @@
@@ -31,8 +31,8 @@ index 137f1e2..72c53e6 100644
 -    "name": "Telegram Web",
 -    "short_name": "Telegram Web",
 -    "id": "/k/",
-+    "name": "Xabarchi",
-+    "short_name": "Xabarchi",
++    "name": "Xabarchi uz",
++    "short_name": "Xabarchi uz",
 +    "id": "./",
      "start_url": "./",
      "scope": "./",
@@ -607,12 +607,12 @@ index 8b2be75..acc97e7 100644
    private drawCroppedFrame() {
      const v = this.drawVideo;
 diff --git a/src/lang.ts b/src/lang.ts
-index 9601966..3d0b489 100644
+index 9601966..f33404c 100644
 --- a/src/lang.ts
 +++ b/src/lang.ts
 @@ -1,4 +1,52 @@
  const lang = {
-+  'Abugram.Title': 'Xabarchi',
++  'Abugram.Title': 'Xabarchi uz',
 +  'Abugram.Version': 'Versiya · Версия',
 +  'Abugram.Settings.Row': 'Xabarchi',
 +  'Abugram.Ghost': 'Ko\'rinmas rejim · Режим невидимки',
@@ -665,10 +665,10 @@ index 9601966..3d0b489 100644
    'Appearance.Color.Hex': 'HEX',
 diff --git a/src/lib/abugram/access.ts b/src/lib/abugram/access.ts
 new file mode 100644
-index 0000000..aaba77e
+index 0000000..bb5e646
 --- /dev/null
 +++ b/src/lib/abugram/access.ts
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,93 @@
 +/**
 + * Abugram: what this account may use, as the Abugram admin set it (relay /access): ghost mode for the accounts
 + * allowed it, the admin page link for admins. Everyone else gets neither; their ghost switches have no effect.
@@ -712,7 +712,7 @@ index 0000000..aaba77e
 +    const result = await response.json();
 +    const value: AbugramAccess = {ghost: !!result.ghost, admin: !!result.admin};
 +    setAccess(value);
-+    checkAbugramGate(base, !!result.pro || !!result.admin);
++    checkAbugramGate(base, uid, !!result.pro || !!result.admin);
 +    // * the request filter (in the MTProto worker) honours the ghost switches only while this is set
 +    if(!!appSettings.abugram?.ghostAllowed !== value.ghost) {
 +      if(appSettings.abugram) setAppSettings('abugram', 'ghostAllowed', value.ghost);
@@ -727,7 +727,7 @@ index 0000000..aaba77e
 + * What the Abugram admin set in the relay's /config: in paid mode an account without a paid period (and not admin) gets a
 + * full-screen notice with a button to the Abugram site. Off while the app is free: nothing is shown.
 + */
-+async function checkAbugramGate(base: string, pro: boolean) {
++async function checkAbugramGate(base: string, uid: number, pro: boolean) {
 +  if(gateShown || pro) return;
 +  try {
 +    const config = await (await fetch(base + '/config', {cache: 'no-store'})).json();
@@ -742,12 +742,24 @@ index 0000000..aaba77e
 +    text.textContent = config.payMessage || '';
 +    const button = document.createElement('a');
 +    button.textContent = 'Ochish';
-+    button.href = /^https:\/\//.test(config.url || '') ? config.url : 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/';
++    button.href = 'https://abdulaziz0196.github.io/tashlanov.ru/abugram/pay.html?uid=' + uid;
 +    button.target = '_blank';
 +    button.rel = 'noopener';
 +    button.style.cssText = 'padding:12px 28px;border-radius:12px;background:var(--primary-color,#6A5CFF);color:#fff;text-decoration:none;font-weight:600';
 +    box.append(title, text, button);
 +    document.body.append(box);
++    // while the notice is up: look every 15 seconds whether the account has paid, or paid mode was switched off
++    const timer = setInterval(async() => {
++      try {
++        const access = await (await fetch(base + '/access?uid=' + uid, {cache: 'no-store'})).json();
++        const now = await (await fetch(base + '/config', {cache: 'no-store'})).json();
++        if(access.pro || access.admin || !now.paid) {
++          clearInterval(timer);
++          box.remove();
++          gateShown = false;
++        }
++      } catch(err) {}
++    }, 15000);
 +  } catch(err) {}
 +}
 diff --git a/src/lib/abugram/ads.ts b/src/lib/abugram/ads.ts
@@ -1828,7 +1840,7 @@ diff --git a/src/tests/.keep b/src/tests/.keep
 new file mode 100644
 index 0000000..e69de29
 diff --git a/vite.config.ts b/vite.config.ts
-index 497c30e..0f0682c 100644
+index 497c30e..8f8c05c 100644
 --- a/vite.config.ts
 +++ b/vite.config.ts
 @@ -69,8 +69,8 @@ if(isDEV) {
@@ -1837,7 +1849,7 @@ index 497c30e..0f0682c 100644
    context: {
 -    title: 'Telegram Web',
 -    description: 'Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.',
-+    title: 'Xabarchi',
++    title: 'Xabarchi uz',
 +    description: 'Xabarchi: a Telegram client that works where Telegram is blocked.',
      url: 'https://web.telegram.org/k/',
      origin: 'https://web.telegram.org/'

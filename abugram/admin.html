@@ -79,6 +79,29 @@ img.prev{max-width:100%;max-height:140px;border-radius:10px;margin-top:8px;displ
   </div>
   <h2>Reklamalar</h2>
   <div id="list"></div>
+  <h2>To'lov sozlamalari</h2>
+  <div class="card">
+    <p class="ad-text" style="margin:0 0 6px">Narx so'mda belgilanadi, rublda Markaziy bank kursi bo'yicha avtomatik hisoblanadi. Kurs o'zgarsa, narx ham o'zi yangilanadi.</p>
+    <label for="pPrice">Oylik narx (so'm)</label><input id="pPrice" type="number" min="0" inputmode="numeric">
+    <label for="pDays">Necha kun (obuna muddati)</label><input id="pDays" type="number" min="1" inputmode="numeric">
+    <label for="pDisc">Birinchi to'lovga chegirma (%)</label><input id="pDisc" type="number" min="0" max="95" inputmode="numeric">
+    <label for="pDiscH">Chegirma muddati (soat, ro'yxatdan o'tgandan keyin)</label><input id="pDiscH" type="number" min="0" inputmode="numeric">
+    <label for="pMargin">Rubl narxiga qo'shimcha (%): bank kursi farqi uchun</label><input id="pMargin" type="number" min="0" inputmode="decimal">
+    <label for="pRubOv">Rubl kursini qo'lda belgilash (₽ / 10 000 so'm; 0 = Markaziy bank)</label><input id="pRubOv" type="number" min="0" inputmode="decimal">
+    <div class="ad-text" id="pRate" style="margin-top:6px"></div>
+    <label for="pRubCard">Rubl o'tkazmasi qabul qiladigan karta raqami</label><input id="pRubCard" inputmode="numeric" placeholder="9860 …">
+    <label for="pRubNote">Rossiyadagi mijozga izoh (ixtiyoriy)</label><input id="pRubNote" maxlength="300">
+    <h3 style="margin:18px 0 4px;font-size:16px">PayHamyon (so'mda, avtomatik)</h3>
+    <label class="check"><input type="checkbox" id="pPhOn"> Yoqilgan</label>
+    <label for="pPhUrl">API manzili (https://…)</label><input id="pPhUrl" placeholder="https://user91.hostx.uz">
+    <label for="pPhShop">Shop ID</label><input id="pPhShop" autocomplete="off">
+    <label for="pPhKey">Kassa KEY <span id="pKeyState"></span></label><input id="pPhKey" type="password" autocomplete="new-password" placeholder="Bo'sh qoldirsangiz, saqlangani qoladi">
+    <div class="row" style="margin-top:14px"><button id="psave">Saqlash</button><button class="ghost" id="ptest">PayHamyonni tekshirish</button></div>
+    <div class="msg" id="pmsg"></div>
+  </div>
+  <h2>To'lovlar</h2>
+  <div class="card"><p class="ad-text" style="margin:0">Rubl to'lovlari shu yerda "Tekshiruvda" bo'lib turadi: karta hisobingizni tekshirib, summa mos kelsa "Tasdiqlash" bosing. Karta (PayHamyon) to'lovlari o'zi hisoblanadi.</p></div>
+  <div id="payList"></div>
   <h2>Funksiya tugmalari</h2>
   <div class="card">
     <p class="ad-text" style="margin:0 0 6px">Biror narsa buzilsa, shu yerda o'chirib qo'yasiz. Ilovalar 1–2 daqiqada biladi. Tuzatilgach yana yoqasiz.</p>
@@ -132,6 +155,36 @@ function api(method,path,body){
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(r.status===401?'Parol noto\'g\'ri':(j.error||('Xato '+r.status)));return j;});});
 }
 function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');}
+function loadPay(){
+  api('GET','/admin/pay').then(function(j){
+    var c=j.config||{};
+    $('pPrice').value=c.priceUzs||'';$('pDays').value=c.days||'';$('pDisc').value=c.discountPct||'';$('pDiscH').value=c.discountHours||'';
+    $('pMargin').value=c.rubMargin||'';$('pRubOv').value=c.rubOverride&&c.rubOverride!=='0'?c.rubOverride:'';
+    $('pRubCard').value=c.rubCard||'';$('pRubNote').value=c.rubNote||'';
+    $('pPhOn').checked=c.phOn==='1';$('pPhUrl').value=c.phUrl||'';$('pPhShop').value=c.phShopId||'';$('pPhKey').value='';
+    $('pKeyState').textContent=c.phKeySaved?'(saqlangan ✓)':'(hali kiritilmagan)';
+    $('pRate').textContent=j.rate?'Hozirgi kurs: 10 000 so\'m ≈ '+Number(j.rate).toFixed(2)+' ₽ (rubl narxiga +'+(c.rubMargin||0)+'% qo\'shiladi)':'Kurs hozircha olinmadi.';
+    var list=$('payList');list.innerHTML='';
+    if(!(j.payments||[]).length){list.innerHTML='<div class="card ad-text">Hali to\'lov yo\'q.</div>';return;}
+    var names={paid:'To\'langan ✅',pending:'Kutilmoqda',review:'Tekshiruvda ⏳',expired:'Vaqti o\'tgan',rejected:'Rad etilgan'};
+    j.payments.forEach(function(p){
+      var d=document.createElement('div');d.className='card';
+      d.innerHTML='<div class="row" style="justify-content:space-between"><div class="ad-title"></div><span class="pill"></span></div><div class="ad-text"></div><div class="row" style="margin-top:10px"></div>';
+      d.querySelector('.ad-title').textContent='#'+p.id+' · ID '+p.uid+' · '+(p.method==='rub'?'Rubl':'Karta');
+      var pill=d.querySelector('.pill');pill.textContent=names[p.status]||p.status;if(p.status==='paid')pill.className='pill on';
+      var info=(p.method==='rub'?('Yuborgan: '+p.rub+' ₽ (kerak edi ≈ '+p.expected_rub+' ₽ · '+Number(p.uzs).toLocaleString('ru-RU')+' so\'m)'+(p.expected_rub&&p.rub>=p.expected_rub*0.97?' ✓ mos':p.expected_rub?' ⚠️ kam':'')+'\n'+p.note):('Summa: '+Number(p.pay_amount).toLocaleString('ru-RU')+' so\'m'))+'\n'+new Date(p.created).toLocaleString('ru-RU')+(p.discount?' · chegirma '+p.discount+'%':'');
+      d.querySelector('.ad-text').textContent=info;
+      if(p.status==='review'){
+        var row=d.querySelector('.row:last-child');
+        var ok=document.createElement('button');ok.textContent='Tasdiqlash ('+p.days+' kun)';ok.onclick=function(){if(confirm('Karta hisobida pul tushganini tekshirdingizmi? Obuna '+p.days+' kunga beriladi.'))api('POST','/admin/pay/approve',{id:p.id,days:p.days}).then(loadPay).catch(function(e){alert(e.message);});};
+        var no=document.createElement('button');no.className='danger';no.textContent='Rad etish';no.onclick=function(){api('POST','/admin/pay/reject',{id:p.id}).then(loadPay);};
+        row.appendChild(ok);row.appendChild(no);
+      }
+      list.appendChild(d);
+    });
+  }).catch(function(e){msg($('pmsg'),e.message);});
+}
+function loadConfigAndPay(){loadPay();}
 function loadConfig(){
   api('GET','/admin/config').then(function(c){renderFeatures(String(c.off||'').split(/[\s,]+/));$('cRelays').value=c.relays||'';$('cPaid').checked=!!c.paid;$('cMin').value=c.minBuild||0;$('cUpdMsg').value=c.updateMessage||'';$('cPayMsg').value=c.payMessage||'';$('cUrl').value=c.url||'';}).catch(function(e){msg($('cmsg'),e.message);});
 }
@@ -154,7 +207,7 @@ function checkRelays(){
     }).catch(function(){line.textContent='❌ '+u+' · javob yo\'q';});
   });
 }
-function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats();loadConfig(); }
+function showPanel(){ $('login').hidden=true;$('panel').hidden=false;load();loadUsers();loadStats();loadConfig();loadPay(); }
 function loadStats(){
   var f=function(n){return (n||0).toLocaleString('ru-RU');};
   api('GET','/admin/stats').then(function(s){
@@ -226,6 +279,15 @@ $('reset').onclick=function(){fill(null);};
 $('fsave').onclick=function(){
   var off=[].slice.call($('featList').querySelectorAll('input')).filter(function(c){return !c.checked;}).map(function(c){return c.dataset.k;});
   api('POST','/admin/config',{off:off.join(',')}).then(function(){msg($('fmsg'),off.length?'Saqlandi ✅ O\'chirilgan: '+off.length+' ta':'Saqlandi ✅ Hammasi yoqiq',true);}).catch(function(e){msg($('fmsg'),e.message);});
+};
+$('psave').onclick=function(){
+  var body={priceUzs:Number($('pPrice').value)||0,days:Number($('pDays').value)||30,discountPct:Number($('pDisc').value)||0,discountHours:Number($('pDiscH').value)||0,rubMargin:Number($('pMargin').value)||0,rubOverride:Number($('pRubOv').value)||0,rubCard:$('pRubCard').value.trim(),rubNote:$('pRubNote').value.trim(),phOn:$('pPhOn').checked?1:0,phUrl:$('pPhUrl').value.trim(),phShopId:$('pPhShop').value.trim()};
+  if($('pPhKey').value.trim())body.phKey=$('pPhKey').value.trim();
+  api('POST','/admin/pay',body).then(function(){msg($('pmsg'),'Saqlandi ✅',true);loadPay();}).catch(function(e){msg($('pmsg'),e.message);});
+};
+$('ptest').onclick=function(){
+  msg($('pmsg'),'Tekshirilmoqda…',true);
+  api('POST','/admin/pay/test',{}).then(function(r){if(r.ok)msg($('pmsg'),'✅ Ulandi: '+(r.name||'')+' · limit '+Number(r.min).toLocaleString('ru-RU')+' – '+Number(r.max).toLocaleString('ru-RU')+' so\'m',true);else msg($('pmsg'),'❌ '+(r.error||'Xato'));}).catch(function(e){msg($('pmsg'),e.message);});
 };
 $('rcheck').onclick=checkRelays;
 $('rsave').onclick=function(){

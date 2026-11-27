@@ -43,6 +43,9 @@ b{color:var(--text)}
 //   /admin/stats           /stats plus the app versions in use (admin only)
 //   GET  /config           {paid, minBuild, ...}: what the apps check at start (an update is required / a paid period is required); both off while free
 //   /config `off`: the features the admin switched off (apps skip them): ads, splash, updater, sendTime, ghost, keepDeleted
+//   Payments (subscription; see the pay page): GET /pay/quote?uid=, POST /pay/create {uid} (PayHamyon, so&#x27;m),
+//   GET /pay/status?id=&amp;uid=, POST /pay/callback?k=, POST /pay/rub {uid, bank, rub, at, contact} (rubles, confirmed by hand);
+//   /admin/pay (GET payments + settings, POST settings), /admin/pay/approve, /admin/pay/reject, /admin/pay/test
 //   /admin/config          read (GET) and save (POST) /config; `relays` = the relay servers of the apps, one https address per line
 //   /admin/access          the allowed accounts: list (GET), save (POST {uid, name, ghost, admin}), delete (DELETE ?uid=)
 //                          all /admin/* only with &quot;Authorization: Bearer &lt;ADMIN_PASSWORD&gt;&quot; (a secret set in Cloudflare);
@@ -127,6 +130,13 @@ async function db(env) {
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS fails (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0)`).run();
     await env.DB.prepare(&#x27;CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT \&#x27;\&#x27;)&#x27;).run();
     try { await env.DB.prepare(&#x27;ALTER TABLE access ADD COLUMN pro_until INTEGER NOT NULL DEFAULT 0&#x27;).run(); } catch(e) {}
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS paycfg (k TEXT PRIMARY KEY, v TEXT NOT NULL DEFAULT &#x27;&#x27;)`).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER NOT NULL, method TEXT NOT NULL, status TEXT NOT NULL,
+      uzs INTEGER NOT NULL DEFAULT 0, pay_amount INTEGER NOT NULL DEFAULT 0, token TEXT NOT NULL DEFAULT &#x27;&#x27;, card TEXT NOT NULL DEFAULT &#x27;&#x27;,
+      rub REAL NOT NULL DEFAULT 0, expected_rub REAL NOT NULL DEFAULT 0, days INTEGER NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0,
+      note TEXT NOT NULL DEFAULT &#x27;&#x27;, created INTEGER NOT NULL DEFAULT 0, expires INTEGER NOT NULL DEFAULT 0, paid_at INTEGER NOT NULL DEFAULT 0
+    )`).run();
     schemaReady = true;
   }
   return env.DB;
@@ -204,6 +214,262 @@ async function getConfig(env) {
   }
   configCache = {value, until: Date.now() + 60e3};
   return value;
+}
+
+// ---------------------------------------------------------------- payments
+const PAY_KEYS = [&#x27;priceUzs&#x27;, &#x27;days&#x27;, &#x27;discountPct&#x27;, &#x27;discountHours&#x27;, &#x27;rubMargin&#x27;, &#x27;rubOverride&#x27;, &#x27;rubCard&#x27;, &#x27;rubNote&#x27;, &#x27;phUrl&#x27;, &#x27;phShopId&#x27;, &#x27;phKeyEnc&#x27;, &#x27;phOn&#x27;, &#x27;cbKey&#x27;];
+const PAY_DEFAULT = {priceUzs: &#x27;30000&#x27;, days: &#x27;30&#x27;, discountPct: &#x27;75&#x27;, discountHours: &#x27;24&#x27;, rubMargin: &#x27;4&#x27;, rubOverride: &#x27;0&#x27;, rubCard: &#x27;&#x27;, rubNote: &#x27;&#x27;, phUrl: &#x27;&#x27;, phShopId: &#x27;&#x27;, phKeyEnc: &#x27;&#x27;, phOn: &#x27;0&#x27;, cbKey: &#x27;&#x27;};
+const PAID_WORDS = [&#x27;paid&#x27;, &#x27;success&#x27;, &#x27;completed&#x27;, &#x27;confirmed&#x27;];
+
+async function payCfg(d) {
+  const {results} = await d.prepare(&#x27;SELECT k, v FROM paycfg&#x27;).all();
+  const c = {...PAY_DEFAULT};
+  for(const r of results) if(r.k in PAY_DEFAULT) c[r.k] = r.v;
+  if(!c.cbKey) {
+    c.cbKey = [...crypto.getRandomValues(new Uint8Array(16))].map((x) =&gt; x.toString(16).padStart(2, &#x27;0&#x27;)).join(&#x27;&#x27;);
+    await d.prepare(&#x27;INSERT OR IGNORE INTO paycfg (k, v) VALUES (?, ?)&#x27;).bind(&#x27;cbKey&#x27;, c.cbKey).run();
+  }
+  return c;
+}
+
+// the PayHamyon shop key is kept encrypted with a key derived from the admin password
+async function cryptoKey(env) {
+  const raw = await crypto.subtle.digest(&#x27;SHA-256&#x27;, new TextEncoder().encode(&#x27;abugram-pay-key:&#x27; + (env.ADMIN_PASSWORD || &#x27;&#x27;)));
+  return crypto.subtle.importKey(&#x27;raw&#x27;, raw, &#x27;AES-GCM&#x27;, false, [&#x27;encrypt&#x27;, &#x27;decrypt&#x27;]);
+}
+async function encryptText(env, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name: &#x27;AES-GCM&#x27;, iv}, await cryptoKey(env), new TextEncoder().encode(text)));
+  const all = new Uint8Array(iv.length + ct.length); all.set(iv); all.set(ct, iv.length);
+  return btoa(String.fromCharCode(...all));
+}
+async function decryptText(env, b64) {
+  try {
+    const all = Uint8Array.from(atob(b64), (c) =&gt; c.charCodeAt(0));
+    return new TextDecoder().decode(await crypto.subtle.decrypt({name: &#x27;AES-GCM&#x27;, iv: all.slice(0, 12)}, await cryptoKey(env), all.slice(12)));
+  } catch(e) { return &#x27;&#x27;; }
+}
+
+// the shop address must be https (http only when the relay runs in test mode)
+function phBase(env, cfg) {
+  const u = String(cfg.phUrl || &#x27;&#x27;).replace(/\/+$/, &#x27;&#x27;);
+  if(/^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(u)) return u;
+  if(env.PAY_TEST &amp;&amp; /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(u)) return u;
+  return &#x27;&#x27;;
+}
+async function phCall(env, cfg, path, data) {
+  const base = phBase(env, cfg);
+  const key = await decryptText(env, cfg.phKeyEnc);
+  if(!base || !cfg.phShopId || !key) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() =&gt; ctrl.abort(), 15000);
+  try {
+    const r = await fetch(base + path, {method: &#x27;POST&#x27;, headers: {&#x27;content-type&#x27;: &#x27;application/json&#x27;}, body: JSON.stringify({shop_id: cfg.phShopId, shop_key: key, ...data}), signal: ctrl.signal});
+    return await r.json();
+  } catch(e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// rubles for 10 000 so&#x27;m: the Central Bank of Russia&#x27;s rate (kept an hour), or the admin&#x27;s own number
+let rubRate = {v: 0, until: 0};
+async function rubPer10000(cfg) {
+  const manual = Number(cfg.rubOverride) || 0;
+  if(manual &gt; 0) return manual;
+  if(Date.now() &lt; rubRate.until &amp;&amp; rubRate.v &gt; 0) return rubRate.v;
+  try {
+    const r = await fetch(&#x27;https://www.cbr-xml-daily.ru/daily_json.js&#x27;, {headers: {&#x27;user-agent&#x27;: &#x27;xabarchi-relay&#x27;}});
+    const j = await r.json();
+    const u = j.Valute &amp;&amp; j.Valute.UZS;
+    if(u &amp;&amp; u.Value &gt; 0) rubRate = {v: u.Value / u.Nominal * 10000, until: Date.now() + 3600e3};
+    else rubRate.until = Date.now() + 120e3;
+  } catch(e) {
+    rubRate.until = Date.now() + 120e3;
+  }
+  return rubRate.v;
+}
+
+// what this account pays now: the price, with the first-payment discount while its window is open
+async function payQuote(env, d, uid) {
+  const cfg = await payCfg(d);
+  const now = Date.now();
+  const price = Math.max(0, Math.floor(Number(cfg.priceUzs) || 0));
+  const days = Math.max(1, Math.floor(Number(cfg.days) || 30));
+  const h = await sha256hex(&#x27;abugram-user:&#x27; + uid);
+  const u = await d.prepare(&#x27;SELECT MIN(first) AS first FROM user_platforms WHERE h = ?&#x27;).bind(h).first();
+  const first = u &amp;&amp; u.first ? u.first : now;
+  const hadPaid = await d.prepare(&quot;SELECT COUNT(*) AS n FROM payments WHERE uid = ? AND status = &#x27;paid&#x27;&quot;).bind(uid).first();
+  const pct = Math.min(95, Math.max(0, Number(cfg.discountPct) || 0));
+  const endsAt = first + (Number(cfg.discountHours) || 0) * 3600e3;
+  const discounted = pct &gt; 0 &amp;&amp; now &lt; endsAt &amp;&amp; !(hadPaid &amp;&amp; hadPaid.n &gt; 0);
+  const finalUzs = discounted ? Math.max(1000, Math.round(price * (100 - pct) / 100 / 100) * 100) : price;
+  const per10k = await rubPer10000(cfg);
+  const margin = Number(cfg.rubMargin) || 0;
+  const rubFor = (uzs) =&gt; per10k &gt; 0 ? Math.ceil(uzs / 10000 * per10k * (1 + margin / 100)) : 0;
+  const acc = await d.prepare(&#x27;SELECT pro_until FROM access WHERE uid = ?&#x27;).bind(uid).first();
+  return {
+    priceUzs: price, finalUzs, rubFinal: rubFor(finalUzs), rubFull: rubFor(price), days,
+    discount: discounted ? {pct, endsAt} : null,
+    proUntil: acc ? acc.pro_until || 0 : 0,
+    methods: {payhamyon: cfg.phOn === &#x27;1&#x27; &amp;&amp; !!phBase(env, cfg) &amp;&amp; !!cfg.phShopId &amp;&amp; !!cfg.phKeyEnc, rub: !!cfg.rubCard},
+    rubCard: cfg.rubCard, rubNote: cfg.rubNote
+  };
+}
+
+async function grantDays(d, uid, days) {
+  const row = await d.prepare(&#x27;SELECT pro_until FROM access WHERE uid = ?&#x27;).bind(uid).first();
+  const base = Math.max(Date.now(), row ? row.pro_until || 0 : 0);
+  const until = base + days * 864e5;
+  await d.prepare(&quot;INSERT INTO access (uid, name, ghost, admin, pro_until) VALUES (?, &#x27;&#x27;, 0, 0, ?) ON CONFLICT(uid) DO UPDATE SET pro_until = excluded.pro_until&quot;).bind(uid, until).run();
+  return until;
+}
+
+// asks PayHamyon again whether this payment was made (the callback is only a hint) and, once, credits the days
+async function settlePayment(env, d, pay) {
+  if(pay.status !== &#x27;pending&#x27; || pay.method !== &#x27;payhamyon&#x27;) return pay.status;
+  if(Date.now() &gt; pay.expires + 120e3) {
+    await d.prepare(&quot;UPDATE payments SET status = &#x27;expired&#x27; WHERE id = ? AND status = &#x27;pending&#x27;&quot;).bind(pay.id).run();
+    return &#x27;expired&#x27;;
+  }
+  const cfg = await payCfg(d);
+  const c = await phCall(env, cfg, &#x27;/api/payment/check&#x27;, {token: pay.token});
+  if(!c) return &#x27;pending&#x27;;
+  const st = String(c.status || &#x27;&#x27;).toLowerCase();
+  const amount = Number(c.pay_amount ?? c.amount ?? 0);
+  if(PAID_WORDS.includes(st) &amp;&amp; amount === pay.pay_amount) {
+    const r = await d.prepare(&quot;UPDATE payments SET status = &#x27;paid&#x27;, paid_at = ? WHERE id = ? AND status = &#x27;pending&#x27;&quot;).bind(Date.now(), pay.id).run();
+    if(r.meta &amp;&amp; r.meta.changes === 1) await grantDays(d, pay.uid, pay.days);
+    return &#x27;paid&#x27;;
+  }
+  if([&#x27;canceled&#x27;, &#x27;expired&#x27;, &#x27;timeout&#x27;, &#x27;failed&#x27;, &#x27;rejected&#x27;].includes(st)) {
+    await d.prepare(&quot;UPDATE payments SET status = &#x27;expired&#x27; WHERE id = ? AND status = &#x27;pending&#x27;&quot;).bind(pay.id).run();
+    return &#x27;expired&#x27;;
+  }
+  return &#x27;pending&#x27;;
+}
+
+async function handlePay(request, env, url, path, d, J) {
+  const uidOf = (v) =&gt; { const n = Number(v); return Number.isSafeInteger(n) &amp;&amp; n &gt; 0 ? n : 0; };
+
+  if(path === &#x27;/pay/quote&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const uid = uidOf(url.searchParams.get(&#x27;uid&#x27;));
+    if(!uid) return J({error: &#x27;uid&#x27;}, 400);
+    return J(await payQuote(env, d, uid), 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/pay/create&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    if(limited(request, &#x27;paycreate&#x27;, 12, 3600e3)) return J({error: &#x27;Juda ko\&#x27;p urinish. Keyinroq qayta urining.&#x27;}, 429);
+    let b = {}; try { b = await request.json(); } catch(e) {}
+    const uid = uidOf(b.uid);
+    if(!uid) return J({error: &#x27;uid&#x27;}, 400);
+    const q = await payQuote(env, d, uid);
+    if(!q.methods.payhamyon) return J({error: &#x27;Karta orqali to\&#x27;lov hozircha yoqilmagan&#x27;}, 400);
+    // a payment still waiting for this account is shown again, not created twice
+    const open = await d.prepare(&quot;SELECT * FROM payments WHERE uid = ? AND method = &#x27;payhamyon&#x27; AND status = &#x27;pending&#x27; AND expires &gt; ? ORDER BY id DESC LIMIT 1&quot;).bind(uid, Date.now()).first();
+    if(open) return J({id: open.id, card: open.card, payAmount: open.pay_amount, expires: open.expires, uzs: open.uzs, days: open.days});
+    const cfg = await payCfg(d);
+    const cb = new URL(request.url).origin + &#x27;/pay/callback?k=&#x27; + cfg.cbKey;
+    const r = await phCall(env, cfg, &#x27;/api/payment/create&#x27;, {amount: q.finalUzs, callback_url: cb});
+    if(!r || !r.success || !r.token) return J({error: (r &amp;&amp; r.error) || &#x27;To\&#x27;lov tizimi javob bermadi. Keyinroq urining.&#x27;}, 502);
+    const expires = Date.now() + (Number(r.timeout_minutes) || 15) * 60e3;
+    const ins = await d.prepare(&quot;INSERT INTO payments (uid, method, status, uzs, pay_amount, token, card, days, discount, created, expires) VALUES (?, &#x27;payhamyon&#x27;, &#x27;pending&#x27;, ?, ?, ?, ?, ?, ?, ?, ?)&quot;)
+      .bind(uid, q.finalUzs, Math.round(Number(r.pay_amount)), String(r.token), String(r.card || &#x27;&#x27;), q.days, q.discount ? q.discount.pct : 0, Date.now(), expires).run();
+    return J({id: ins.meta.last_row_id, card: String(r.card || &#x27;&#x27;), payAmount: Math.round(Number(r.pay_amount)), expires, uzs: q.finalUzs, days: q.days});
+  }
+
+  if(path === &#x27;/pay/status&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const id = Number(url.searchParams.get(&#x27;id&#x27;)), uid = uidOf(url.searchParams.get(&#x27;uid&#x27;));
+    const pay = id &amp;&amp; uid ? await d.prepare(&#x27;SELECT * FROM payments WHERE id = ? AND uid = ?&#x27;).bind(id, uid).first() : null;
+    if(!pay) return J({error: &#x27;not found&#x27;}, 404);
+    const status = pay.method === &#x27;payhamyon&#x27; ? await settlePayment(env, d, pay) : pay.status;
+    const acc = await d.prepare(&#x27;SELECT pro_until FROM access WHERE uid = ?&#x27;).bind(uid).first();
+    return J({status, proUntil: acc ? acc.pro_until || 0 : 0}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/pay/callback&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const cfg = await payCfg(d);
+    if(url.searchParams.get(&#x27;k&#x27;) !== cfg.cbKey) return J({error: &#x27;forbidden&#x27;}, 403);
+    let b = {}; try { b = await request.json(); } catch(e) {}
+    const pay = b.token ? await d.prepare(&#x27;SELECT * FROM payments WHERE token = ?&#x27;).bind(String(b.token)).first() : null;
+    if(pay) await settlePayment(env, d, pay); // never trusted as it is: asked again from PayHamyon
+    return J({ok: true});
+  }
+
+  if(path === &#x27;/pay/rub&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    if(limited(request, &#x27;payrub&#x27;, 8, 3600e3)) return J({error: &#x27;Juda ko\&#x27;p urinish.&#x27;}, 429);
+    let b = {}; try { b = await request.json(); } catch(e) {}
+    const uid = uidOf(b.uid), rub = Number(b.rub);
+    if(!uid || !(rub &gt; 0 &amp;&amp; rub &lt; 10000000)) return J({error: &#x27;Summani to\&#x27;g\&#x27;ri yozing&#x27;}, 400);
+    const q = await payQuote(env, d, uid);
+    if(!q.methods.rub) return J({error: &#x27;Rubl bilan to\&#x27;lov hozircha yoqilmagan&#x27;}, 400);
+    const note = [&#x27;Bank: &#x27; + clean(b.bank, 40), &#x27;Vaqt: &#x27; + clean(b.at, 40), &#x27;Aloqa: &#x27; + clean(b.contact, 80)].join(&#x27; · &#x27;);
+    const ins = await d.prepare(&quot;INSERT INTO payments (uid, method, status, uzs, rub, expected_rub, days, discount, note, created) VALUES (?, &#x27;rub&#x27;, &#x27;review&#x27;, ?, ?, ?, ?, ?, ?, ?)&quot;)
+      .bind(uid, q.finalUzs, rub, q.rubFinal, q.days, q.discount ? q.discount.pct : 0, note, Date.now()).run();
+    return J({id: ins.meta.last_row_id, status: &#x27;review&#x27;});
+  }
+
+  return null;
+}
+
+async function handlePayAdmin(request, env, url, path, d, J) {
+  const denied = await adminGate(request, env, d);
+  if(denied) return denied;
+
+  if(path === &#x27;/admin/pay&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
+    const cfg = await payCfg(d);
+    const {results} = await d.prepare(&#x27;SELECT * FROM payments ORDER BY id DESC LIMIT 100&#x27;).all();
+    const safe = {...cfg}; delete safe.phKeyEnc; delete safe.cbKey;
+    safe.phKeySaved = !!cfg.phKeyEnc;
+    return J({config: safe, payments: results, rate: await rubPer10000(cfg)}, 200, {&#x27;cache-control&#x27;: &#x27;no-store&#x27;});
+  }
+
+  if(path === &#x27;/admin/pay&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const b = await request.json();
+    const stmts = [];
+    const put = (k, v) =&gt; stmts.push(d.prepare(&#x27;INSERT INTO paycfg (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v&#x27;).bind(k, String(v)));
+    for(const k of [&#x27;priceUzs&#x27;, &#x27;days&#x27;, &#x27;discountPct&#x27;, &#x27;discountHours&#x27;, &#x27;rubMargin&#x27;, &#x27;rubOverride&#x27;]) {
+      if(k in b) put(k, Math.max(0, Number(b[k]) || 0));
+    }
+    if(&#x27;rubCard&#x27; in b) put(&#x27;rubCard&#x27;, clean(b.rubCard, 60));
+    if(&#x27;rubNote&#x27; in b) put(&#x27;rubNote&#x27;, clean(b.rubNote, 300));
+    if(&#x27;phOn&#x27; in b) put(&#x27;phOn&#x27;, b.phOn ? &#x27;1&#x27; : &#x27;0&#x27;);
+    if(&#x27;phShopId&#x27; in b) put(&#x27;phShopId&#x27;, clean(b.phShopId, 80));
+    if(&#x27;phUrl&#x27; in b) {
+      const u = String(b.phUrl || &#x27;&#x27;).trim().replace(/\/+$/, &#x27;&#x27;);
+      if(u &amp;&amp; !phBase(env, {phUrl: u})) return J({error: &#x27;Manzil https:// bilan boshlanishi kerak&#x27;}, 400);
+      put(&#x27;phUrl&#x27;, u);
+    }
+    // a key that is sent is saved (encrypted); an empty one keeps the saved key
+    if(typeof b.phKey === &#x27;string&#x27; &amp;&amp; b.phKey.trim()) put(&#x27;phKeyEnc&#x27;, await encryptText(env, b.phKey.trim()));
+    if(stmts.length) await d.batch(stmts);
+    return J({ok: true});
+  }
+
+  if(path === &#x27;/admin/pay/test&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const cfg = await payCfg(d);
+    const r = await phCall(env, cfg, &#x27;/api/shop/info&#x27;, {});
+    if(!r) return J({ok: false, error: &#x27;Javob yo\&#x27;q: manzil, Shop ID yoki KEY ni tekshiring&#x27;});
+    return J({ok: !!r.success, name: r.name, min: r.min_amount, max: r.max_amount, error: r.error});
+  }
+
+  if(path === &#x27;/admin/pay/approve&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const b = await request.json();
+    const pay = await d.prepare(&quot;SELECT * FROM payments WHERE id = ? AND status = &#x27;review&#x27;&quot;).bind(Number(b.id)).first();
+    if(!pay) return J({error: &#x27;To\&#x27;lov topilmadi yoki allaqachon ko\&#x27;rib chiqilgan&#x27;}, 404);
+    const days = Math.max(1, Math.min(3650, Math.floor(Number(b.days) || pay.days)));
+    const r = await d.prepare(&quot;UPDATE payments SET status = &#x27;paid&#x27;, paid_at = ?, days = ? WHERE id = ? AND status = &#x27;review&#x27;&quot;).bind(Date.now(), days, pay.id).run();
+    if(r.meta &amp;&amp; r.meta.changes === 1) await grantDays(d, pay.uid, days);
+    return J({ok: true});
+  }
+
+  if(path === &#x27;/admin/pay/reject&#x27; &amp;&amp; request.method === &#x27;POST&#x27;) {
+    const b = await request.json();
+    await d.prepare(&quot;UPDATE payments SET status = &#x27;rejected&#x27; WHERE id = ? AND status = &#x27;review&#x27;&quot;).bind(Number(b.id)).run();
+    return J({ok: true});
+  }
+  return null;
 }
 
 async function handleAds(request, env, url) {
@@ -325,6 +591,19 @@ async function handleAds(request, env, url) {
       out.versions = vr.map((r) =&gt; ({platform: r.platform, version: r.version || &#x27;?&#x27;, n: r.n}));
     }
     return J(out, 200, admin ? {&#x27;cache-control&#x27;: &#x27;no-store&#x27;} : {&#x27;cache-control&#x27;: &#x27;public, max-age=120&#x27;});
+  }
+
+  if(path.startsWith(&#x27;/pay/&#x27;)) {
+    const d = await db(env);
+    if(!d) return J({error: &#x27;no database bound as DB&#x27;}, 500);
+    const r = await handlePay(request, env, url, path, d, J);
+    if(r) return r;
+  }
+  if(path.startsWith(&#x27;/admin/pay&#x27;)) {
+    const d = await db(env);
+    if(!d) return J({error: &#x27;no database bound as DB&#x27;}, 500);
+    const r = await handlePayAdmin(request, env, url, path, d, J);
+    if(r) return r;
   }
 
   if(path === &#x27;/config&#x27; &amp;&amp; request.method === &#x27;GET&#x27;) {
@@ -449,7 +728,7 @@ export default {
       const target = &#x27;https://&#x27; + ws[1].toLowerCase() + &#x27;.web.telegram.org/&#x27; + ws[2] + url.search;
       return fetch(new Request(target, request));
     }
-    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27; || url.pathname === &#x27;/config&#x27;) {
+    if(url.pathname === &#x27;/ads&#x27; || url.pathname.startsWith(&#x27;/ads/&#x27;) || url.pathname.startsWith(&#x27;/go/&#x27;) || url.pathname.startsWith(&#x27;/admin/&#x27;) || url.pathname === &#x27;/access&#x27; || url.pathname === &#x27;/hello&#x27; || url.pathname === &#x27;/stats&#x27; || url.pathname === &#x27;/config&#x27; || url.pathname.startsWith(&#x27;/pay/&#x27;)) {
       try {
         const response = await handleAds(request, env, url);
         if(response) return response;
@@ -458,7 +737,7 @@ export default {
         return json({error: &#x27;server xatosi&#x27;}, 500);
       }
     }
-    return new Response(&#x27;Abugram relay is running (v12).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
+    return new Response(&#x27;Abugram relay is running (v13).&#x27;, {headers: {&#x27;content-type&#x27;: &#x27;text/plain; charset=utf-8&#x27;}});
   }
 };
 </pre>
