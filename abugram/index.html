@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <title>Xabarchi uz</title>
-<meta name="description" content="Xabarchi — VPN'siz ishlaydigan Telegram mijozi. Android, iPhone va veb uchun bepul.">
+<meta name="description" content="Xabarchi — VPN'siz ishlaydigan Telegram mijozi. Android uchun bepul.">
 <meta name="theme-color" content="#050713">
 <link rel="icon" href="web/assets/img/favicon-32x32.png">
 <link rel="apple-touch-icon" href="web/assets/img/apple-touch-icon.png">
@@ -132,7 +132,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
     <p class="lead" data-lang="ru">Xabarchi — клиент Telegram с вашим аккаунтом, чатами и каналами. Встроенный прокси подключается сам, VPN не нужен. Время с секундами, время отправки, подтверждение звонка и другие удобства.</p>
     <div class="cta">
       <a class="btn" href="#yuklab">⬇️ <span data-lang="uz">Bepul yuklab olish</span><span data-lang="ru">Скачать бесплатно</span></a>
-      <a class="btn ghost" href="web/">🌐 <span data-lang="uz">Brauzerda ochish</span><span data-lang="ru">Открыть в браузере</span></a>
     </div>
     <div class="trust">
       <span>✅ <b data-lang="uz">Bepul</b><b data-lang="ru">Бесплатно</b></span>
@@ -153,7 +152,7 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 
 <section id="yuklab">
   <div class="kicker" data-lang="uz">Yuklab olish</div><div class="kicker" data-lang="ru">Скачать</div>
-  <h2 data-lang="uz">Qurilmangizni tanlang</h2><h2 data-lang="ru">Выберите устройство</h2>
+  <h2 data-lang="uz">Android uchun yuklab oling</h2><h2 data-lang="ru">Скачайте для Android</h2>
   <p class="sub" data-lang="uz">Hammasi bepul. Rasmiy Telegram'ni o'chirish shart emas — Xabarchi yonida alohida ilova bo'lib turadi.</p>
   <p class="sub" data-lang="ru">Всё бесплатно. Удалять официальный Telegram не нужно — Xabarchi ставится отдельным приложением рядом.</p>
 
@@ -166,24 +165,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
       <div class="status wait" id="st-android">⏳ <span data-lang="uz">Tekshirilmoqda…</span><span data-lang="ru">Проверяем…</span></div>
       <a class="btn" id="btn-android" aria-disabled="true" href="https://github.com/Abdulaziz0196/abugram-android/releases/latest">⬇️ Xabarchi.apk</a>
       <div class="meta" id="meta-android"></div>
-    </div>
-    <div class="card" id="card-ios">
-      <div class="ic">🍏</div>
-      <h3>iPhone (IPA)</h3>
-      <p data-lang="uz">Sinov versiyasi. GBox, Feather, Esign yoki Sideloadly orqali o'rnating. Avval eski Xabarchi'ni o'chiring.</p>
-      <p data-lang="ru">Тестовая версия. Установите через GBox, Feather, Esign или Sideloadly. Сначала удалите старый Xabarchi.</p>
-      <div class="status wait" id="st-ios">⏳ <span data-lang="uz">Tekshirilmoqda…</span><span data-lang="ru">Проверяем…</span></div>
-      <a class="btn" id="btn-ios" aria-disabled="true" href="https://github.com/Abdulaziz0196/Telegram-iOS/releases/latest">⬇️ Xabarchi.ipa</a>
-      <div class="meta" id="meta-ios"></div>
-    </div>
-    <div class="card" id="card-web">
-      <div class="ic">🌐</div>
-      <h3 data-lang="uz">Veb · iPhone uchun</h3><h3 data-lang="ru">Веб · для iPhone</h3>
-      <p data-lang="uz">O'rnatmasdan ishlaydi. iPhone'da Safari orqali bosh ekranga qo'shsangiz, ilovadek ochiladi.</p>
-      <p data-lang="ru">Работает без установки. На iPhone добавьте на экран «Домой» через Safari — откроется как приложение.</p>
-      <div class="status warn">⚠️ <span data-lang="uz">Rossiyada hozircha VPN bilan</span><span data-lang="ru">В России пока с VPN</span></div>
-      <a class="btn" href="web/">🌐 <span data-lang="uz">Ochish</span><span data-lang="ru">Открыть</span></a>
-      <div class="meta" data-lang="uz">Brauzer · telefon va kompyuter</div><div class="meta" data-lang="ru">Браузер · телефон и компьютер</div>
     </div>
   </div>
 </section>
@@ -216,17 +197,9 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
 <section id="ornatish">
   <div class="kicker" data-lang="uz">O'rnatish</div><div class="kicker" data-lang="ru">Установка</div>
   <h2 data-lang="uz">Qanday o'rnatiladi</h2><h2 data-lang="ru">Как установить</h2>
-  <div class="tabs" role="tablist">
-    <button type="button" role="tab" aria-selected="true" data-tab="android">🤖 Android</button>
-    <button type="button" role="tab" aria-selected="false" data-tab="web">🌐 <span data-lang="uz">Veb / iPhone</span><span data-lang="ru">Веб / iPhone</span></button>
-  </div>
   <div class="panel" data-panel="android">
     <ol data-lang="uz"><li><b>Xabarchi.apk</b> ni yuklab oling.</li><li>Faylni oching. Telefon so'rasa, <b>"Noma'lum manbalardan o'rnatish"</b>ga ruxsat bering.</li><li><b>O'rnatish</b> ni bosing.</li><li>Xabarchi'ni oching va raqamingiz bilan kiring — proxy o'zi yoqiladi.</li></ol>
     <ol data-lang="ru"><li>Скачайте <b>Xabarchi.apk</b>.</li><li>Откройте файл. Если телефон спросит — разрешите <b>«Установку из неизвестных источников»</b>.</li><li>Нажмите <b>Установить</b>.</li><li>Откройте Xabarchi и войдите по номеру — прокси включится сам.</li></ol>
-  </div>
-  <div class="panel" data-panel="web" hidden>
-    <ol data-lang="uz"><li>iPhone'da <b>Safari</b>'da <a href="web/" style="text-decoration:underline">Xabarchi Web</a> ni oching.</li><li>Pastdagi <b>Ulashish</b> tugmasini bosing.</li><li><b>"На экран Домой" / "Add to Home Screen"</b> ni tanlang.</li><li>Bosh ekrandagi Xabarchi'ni oching va kiring.</li></ol>
-    <ol data-lang="ru"><li>На iPhone откройте <a href="web/" style="text-decoration:underline">Xabarchi Web</a> в <b>Safari</b>.</li><li>Нажмите <b>Поделиться</b> внизу.</li><li>Выберите <b>«На экран Домой»</b>.</li><li>Откройте Xabarchi с экрана «Домой» и войдите.</li></ol>
   </div>
 </section>
 
@@ -247,7 +220,7 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
   <div class="brand"><img class="logo" src="logo.svg" alt="">Xabarchi&nbsp;<span style="color:#00D5FF">uz</span></div>
   <p data-lang="uz">Xabarchi — Telegram Messenger ochiq kodiga asoslangan norasmiy mijoz (GPL). Telegram bilan rasmiy aloqasi yo'q. Telegram API'dan foydalanadi. Reklama: ilovada Xabarchi'ning o'z reklamasi va Telegram'ning homiy xabarlari ko'rinadi.</p>
   <p data-lang="ru">Xabarchi — неофициальный клиент на основе открытого кода Telegram Messenger (GPL). Не связан с Telegram официально. Использует Telegram API. Реклама: в приложении показывается собственная реклама Xabarchi и спонсорские сообщения Telegram.</p>
-  <p><a href="https://github.com/Abdulaziz0196/abugram-android">Android kodi</a> · <a href="web/SOURCE.md">Web kodi</a></p>
+  <p><a href="https://github.com/Abdulaziz0196/abugram-android">Android kodi</a></p>
 </div></footer>
 
 <script>
@@ -310,7 +283,6 @@ html[lang="uz"] [data-lang="ru"],html[lang="ru"] [data-lang="uz"]{display:none!i
       });
   }
   release('android','abugram-android',/\.apk$/i);
-  release('ios','Telegram-iOS',/\.ipa$/i,'Sinov versiyasi','Тестовая версия');
 })();
 </script>
 </body>
