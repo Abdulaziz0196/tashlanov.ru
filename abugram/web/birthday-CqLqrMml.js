@@ -1,0 +1,3 @@
+//# allFunctionsCalledOnLoad
+import{t as e}from"./privacyTab-C7gPeCS3.js";import{t}from"./privacySection-KNKQcYJM.js";var n=`Privacy.BirthdayCaption`,r=e(`privacy-birthday`,e=>{new t({tab:e,title:`Privacy.Birthday`,inputKey:`inputPrivacyKeyBirthday`,captions:[n,n,n],exceptionTexts:[`PrivacySettingsController.NeverAllow`,`PrivacySettingsController.AlwaysAllow`],appendTo:e.scrollable,managers:e.managers})});export{r as default};
+//# sourceMappingURL=birthday-CqLqrMml.js.map
